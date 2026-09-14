@@ -1,4 +1,4 @@
-name: Build Kente Workbench
+name: Build Milawei Workbench
 
 # Native build matrix — each OS builds on itself.
 # Cross-compiling Electron native modules (node-gyp) is unreliable,
@@ -102,7 +102,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: kente-workbench-${{ matrix.platform }}-${{ matrix.arch }}
+          name: milawei-workbench-${{ matrix.platform }}-${{ matrix.arch }}
           path: artifacts/**
           # An artifact that silently fails to upload is worse than a red build.
           if-no-files-found: error

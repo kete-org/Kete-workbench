@@ -6,14 +6,16 @@ Read this fully before making changes. See also `ARCHITECTURE.md` and
 
 ## What this repo is
 
-Kente Workbench — a fork of `microsoft/vscode` with an embedded, governance-
+Milawei Workbench — a fork of `microsoft/vscode` with an embedded, governance-
 aware coding agent, built for African developer economics (cost-tiered
 model routing, offline-first, low-spec-hardware support). Currently in
 Tier 0 (foundation): forking and de-branding the editor shell before any
 agent code exists.
 
-**"Kente Workbench" is a working/placeholder name** — not finalized. See
-`DECISIONS.md` for why it changed from "Kente Studio."
+**"Milawei Workbench" is a working/placeholder name** — not finalized. See
+`DECISIONS.md` (D-000) for the naming history: "Kente Studio" → "Kente
+Workbench" → "Milawei Workbench". The repo and some branch names still say
+"Kente".
 
 ## Tech stack
 

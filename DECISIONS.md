@@ -27,7 +27,7 @@ VS Code 1.139, which already ships:
 | Agent sessions workbench layer | `src/vs/sessions/` | — |
 
 So the real question is not "how do we build an orchestrator" but "how do we
-route the one we inherited through a Kente governance gate."
+route the one we inherited through a Milawei governance gate."
 
 ### Findings from the spike
 
@@ -92,7 +92,7 @@ of option B.
 
 ### Consequences and limits
 
-- **Scope of the gate is the Kente agent and anything using the LM/tools
+- **Scope of the gate is the Milawei agent and anything using the LM/tools
   APIs — not arbitrary extension code.** A third-party extension can still
   open its own socket. Constraining that is an extension-permissions problem,
   a separate and much larger piece of work. We must not describe the gate as
@@ -145,11 +145,17 @@ primarily on merge surface.
 
 ---
 
-## D-000 — The name "Kente Workbench" is provisional
+## D-000 — The name "Milawei Workbench" is provisional
 
 **Status:** open — must be settled before Phase 0.2 ships an installable build
 
-Changed from "Kente Studio". Still not final.
+Renamed "Kente Studio" → "Kente Workbench" → "Milawei Workbench"
+(2026-09-14). Still not final. The second rename changed every identity
+field in `product.json` (`applicationName`, `dataFolderName`,
+`win32MutexName`, `win32AppUserModelId`, `darwinBundleIdentifier`), the
+fork's copyright header, and the `kente.governance.*` settings keys, which
+became `milawei.governance.*`. No installable build had shipped, so no
+migration was needed.
 
 `dataFolderName`, `darwinBundleIdentifier`, `urlProtocol`, and the win32
 AppId GUIDs are written into user machines the moment an installable build

@@ -261,7 +261,7 @@ export function prepareBuiltInCopilotRipgrepShim(platform: string, arch: string,
 	const copilotPackagePlatformArch = toCopilotPackagePlatformArch(platform, arch);
 	const tgrepPlatformArch = toCopilotTgrepPlatformArch(platform, arch);
 
-	// Kente Workbench does not ship the proprietary GitHub Copilot extension, so
+	// Milawei Workbench does not ship the proprietary GitHub Copilot extension, so
 	// it is absent from the packaged output and there is no shim to materialize.
 	// Upstream throws here because its builds must guarantee the artifact is
 	// present; for a fork that deliberately excludes it, skipping is correct.

@@ -24,7 +24,7 @@ Tier 0 (foundation).
 | Extension gallery → Open VSX | Done |
 | Telemetry off by default | Done |
 | Native packaging CI (macOS arm64/x64, Windows x64) | Passing; produces unsigned packages as CI artifacts |
-| Governance gate, risk classifier, audit log | Implemented and unit-tested in `src/vs/platform/governance/`; not yet wired into tool or model calls |
+| Governance gate, risk classifier, audit log | Wired into every tool call and model request; tests run in CI. Admin policy pinning and a persistent audit store are still to come |
 | Product icons | Still upstream VS Code artwork |
 
 ## How it differs from Code - OSS
@@ -36,12 +36,12 @@ Tier 0 (foundation).
   collection requires a documented opt-in.
 - **The built-in GitHub Copilot extension is not packaged.** It reaches models
   directly rather than through the governance gate.
-- **Agent actions are designed to pass through one governance gate.** Tool
-  execution and model requests will funnel through a single chokepoint that
-  applies approval gates and writes an audit log. Organisation policy
-  overrides user and project settings, so a repository cannot lower the bar
-  for its own code. The gate exists today; wiring it into those two call sites
-  is the next step.
+- **Agent actions pass through one governance gate.** Every tool call and
+  model request goes through a single chokepoint. Actions at or above the
+  approval threshold (remote or shared infrastructure, by default) need your
+  approval in a dialog before they run, and every decision is written to the
+  *Kete Governance Audit* log. The threshold is an application setting, so a
+  repository's workspace settings cannot lower the bar for its own code.
 
 ## Architecture
 
@@ -133,6 +133,7 @@ changes:
 4. Confirm the two governance call sites —
    `ILanguageModelToolsService.invokeTool` and
    `ILanguageModelsService.sendChatRequest` — still exist and are still gated.
+   The governance tests in CI fail if either stops calling the gate.
 
 ## License
 

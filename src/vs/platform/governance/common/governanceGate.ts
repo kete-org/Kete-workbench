@@ -27,7 +27,7 @@ import {
  * otherwise. Chosen so that the documented rule holds with no configuration at
  * all: local Docker work is low-friction, remote clusters are not.
  */
-const DEFAULT_APPROVAL_THRESHOLD = GovernanceRiskTier.RemoteInfra;
+export const DEFAULT_APPROVAL_THRESHOLD = GovernanceRiskTier.RemoteInfra;
 
 function isRiskTier(value: unknown): value is GovernanceRiskTier {
 	return typeof value === 'string' && (RISK_TIER_ORDER as readonly string[]).includes(value);

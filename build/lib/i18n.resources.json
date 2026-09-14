@@ -627,6 +627,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/governance",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/meteredConnection",
 			"project": "vscode-workbench"
 		},

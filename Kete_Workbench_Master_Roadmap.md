@@ -29,7 +29,7 @@ Must exist before anything else works.
 | macOS + Windows CI matrix | GitHub Actions (`macos-latest` arm64, `macos-15-intel` x64, `windows-latest` x64) — native builds, no cross-compilation. Done: packages build on every PR |
 | Code signing | Apple Developer account (notarization mandatory) + Windows cert (can defer EV cert) |
 | Project rules file | `.ide-config.json` — model routing thresholds, coding standards, rules |
-| Governance approval gates + audit log | Hard rule: no autonomous production changes without human sign-off (inherited from established enterprise AI governance practice). Gate service, risk classifier and audit log exist in `src/vs/platform/governance/`; wiring into tool and model calls is next (D-003) |
+| Governance approval gates + audit log | Hard rule: no autonomous production changes without human sign-off (inherited from established enterprise AI governance practice). Gate, risk classifier and audit log are wired into every tool call and model request, with an approval dialog (D-003). Still to come: admin policy pinning and a persistent audit store |
 | Dual-mode online/offline model routing | `ModelProvider` interface (`OllamaProvider`, `ClaudeAPIProvider`), connectivity state machine (online/offline/degraded) |
 | Tiered model routing + self-hosted inference | Small local model for routine work, mid/frontier tier only when needed; cuts inference cost, the core economic lever |
 | Context efficiency | AST-aware chunking (Tree-sitter), persistent context cache, diff-only context updates |

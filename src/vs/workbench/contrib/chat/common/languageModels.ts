@@ -26,6 +26,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
 import { ContextKeyExpr, IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+import { GovernanceOutcome, IGovernanceGate } from '../../../../platform/governance/common/governance.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, NeverShowAgainScope } from '../../../../platform/notification/common/notification.js';
@@ -38,6 +39,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { ExtensionsRegistry } from '../../../services/extensions/common/extensionsRegistry.js';
+import { governedModelRequest } from '../../governance/common/governedActions.js';
 import { ChatContextKeys } from './actions/chatContextKeys.js';
 import { ChatAgentLocation } from './constants.js';
 import { ILanguageModelsProviderGroup, ILanguageModelsConfigurationService } from './languageModelsConfiguration.js';
@@ -1058,6 +1060,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
+		@IGovernanceGate private readonly _governanceGate: IGovernanceGate,
 	) {
 		this._hasUserSelectableModels = ChatContextKeys.languageModelsAreUserSelectable.bindTo(_contextKeyService);
 		this._hasNonCopilotUserSelectableModels = ChatContextKeys.nonCopilotLanguageModelsAreUserSelectable.bindTo(_contextKeyService);
@@ -1456,6 +1459,14 @@ export class LanguageModelsService implements ILanguageModelsService {
 		}
 		const configuration = this.getModelConfiguration(modelId);
 		const mergedOptions = configuration ? { ...options, configuration: { ...configuration, ...options.configuration } } : options;
+
+		// Kete Workbench: every model request is recorded through the governance
+		// gate, so prompt volume and cost stay auditable (D-003).
+		const governance = await this._governanceGate.authorize(governedModelRequest(modelId, from, messages.length), token);
+		if (governance.outcome !== GovernanceOutcome.Allowed) {
+			throw new Error(`Kete governance did not allow the request to ${modelId}: ${governance.reason}`);
+		}
+
 		return provider.sendChatRequest(modelId, messages, from, mergedOptions, token);
 	}
 

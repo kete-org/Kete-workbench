@@ -52,6 +52,8 @@ import { ChatEntitlement, IChatEntitlementService } from '../../../services/chat
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
+// Kete Workbench: registers the governance gate the chat services below depend on (D-003).
+import '../../governance/browser/governance.contribution.js';
 import { AddConfigurationType, AssistedTypes } from '../../mcp/browser/mcpCommandsAddConfiguration.js';
 import { McpCollisionBehavior, allDiscoverySources, discoverySourceSettingsLabel, mcpDiscoverySection, mcpEnterpriseManagedAuthIdpSection, mcpServerCollisionBehaviorSection, mcpServerSamplingSection, mcpWorkspaceRootConfig } from '../../mcp/common/mcpConfiguration.js';
 import { autoApprovePolicyValue } from '../common/agentHostConfigPolicy.js';

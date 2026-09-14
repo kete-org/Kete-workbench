@@ -29,6 +29,7 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { GovernanceOutcome, IGovernanceGate } from '../../../../../platform/governance/common/governance.js';
 import type { LanguageModelToolInvokedClassification, LanguageModelToolInvokedEvent, LanguageModelToolTelemetryClassification, LanguageModelToolTelemetryData } from '../../../../../platform/telemetry/common/languageModelToolTelemetry.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import * as JSONContributionRegistry from '../../../../../platform/jsonschemas/common/jsonContributionRegistry.js';
@@ -54,6 +55,7 @@ import { ILanguageModelToolsConfirmationService } from '../../common/tools/langu
 import { TerminalToolId } from '../../common/tools/terminalToolIds.js';
 import { CountTokensCallback, createToolSchemaUri, IBeginToolCallOptions, IExternalPreToolUseHookResult, ILanguageModelToolsService, IPreparedToolInvocation, isToolSet, IToolData, IToolImpl, IToolInvocation, IToolInvokedEvent, IToolResult, IToolResultInputOutputDetails, IToolSet, SpecedToolAliases, stringifyPromptTsxPart, ToolAndToolSetEnablementMap, ToolDataSource, ToolInvocationPresentation, toolMatchesModel, ToolSet, ToolSetForModel, VSCodeToolReference } from '../../common/tools/languageModelToolsService.js';
 import { IToolResultCompressor } from '../../common/tools/toolResultCompressor.js';
+import { governanceDenialMessage, governedToolAction } from '../../../governance/common/governedActions.js';
 import { getToolConfirmationAlert } from '../accessibility/chatAccessibilityProvider.js';
 import { IChatWidgetService } from '../chat.js';
 import { IChatToolRiskAssessmentService, ToolRiskLevel } from './chatToolRiskAssessmentService.js';
@@ -159,6 +161,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		@IChatWidgetService private readonly _chatWidgetService: IChatWidgetService,
 		@IToolResultCompressor private readonly _toolResultCompressor: IToolResultCompressor,
 		@IChatToolRiskAssessmentService private readonly _riskAssessmentService: IChatToolRiskAssessmentService,
+		@IGovernanceGate private readonly _governanceGate: IGovernanceGate,
 	) {
 		super();
 
@@ -731,6 +734,21 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 				throw new Error(`Tool ${dto.toolId} does not have an implementation registered.`);
 			}
 			activeTool = currentTool;
+
+			// Kete Workbench: the governance gate is the last check before any tool
+			// runs, after the confirmation flow and hooks above (D-003).
+			const governance = await this._governanceGate.authorize(governedToolAction(dto, currentTool.data), token);
+			if (governance.outcome !== GovernanceOutcome.Allowed) {
+				if (request) {
+					this._chatService.appendProgress(request, {
+						kind: 'info',
+						content: new MarkdownString(localize('keteGovernanceDenied', "Kete governance did not allow \"{0}\": {1}", currentTool.data.displayName, governance.reason)),
+					});
+				}
+				toolResult = { content: [{ kind: 'text', value: governanceDenialMessage(governance) }] };
+				return toolResult;
+			}
+
 			toolResult = await currentTool.impl.invoke(dto, countTokens, {
 				report: step => {
 					toolInvocation?.acceptProgress(step);

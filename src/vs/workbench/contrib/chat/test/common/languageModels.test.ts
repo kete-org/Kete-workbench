@@ -14,6 +14,8 @@ import { URI } from '../../../../../base/common/uri.js';
 import Severity from '../../../../../base/common/severity.js';
 import { SubmenuAction } from '../../../../../base/common/actions.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { GovernanceOutcome, GovernedActionKind } from '../../../../../platform/governance/common/governance.js';
+import { TestGovernanceGate } from '../../../../../platform/governance/test/common/testGovernanceGate.js';
 import { ChatMessageRole, LanguageModelsService, IChatMessage, IChatResponsePart, ILanguageModelChatMetadata, createModelConfigurationActions, ILanguageModelConfigurationSchema, getByokProviderTelemetryName, THIRD_PARTY_PROVIDER_TELEMETRY_NAME, COPILOT_VENDOR_ID, getLanguageModelDisplayNameWithProvider, ILanguageModelChatMetadataAndIdentifier, ILanguageModelsService } from '../../common/languageModels.js';
 import { IPromptChoice, IPromptOptions } from '../../../../../platform/notification/common/notification.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
@@ -38,6 +40,7 @@ import { getLanguageModelDisplayNameWithSubscriptionSource, languageModelSourceP
 suite('LanguageModels', function () {
 
 	let languageModels: LanguageModelsService;
+	let governanceGate: TestGovernanceGate;
 
 	const store = new DisposableStore();
 	const activationEvents = new Set<string>();
@@ -66,11 +69,13 @@ suite('LanguageModels', function () {
 			new TestNotificationService(),
 			NullOpenerService,
 			NullTelemetryService,
+			governanceGate,
 		);
 	}
 
 	setup(function () {
 
+		governanceGate = new TestGovernanceGate();
 		languageModels = createLanguageModelsService(new TestStorageService());
 
 		languageModels.deltaLanguageModelChatProviderDescriptors([
@@ -256,6 +261,49 @@ suite('LanguageModels', function () {
 		cts.dispose(true);
 
 		await request.result;
+	});
+
+	// Fails if sendChatRequest ever stops passing through the governance gate (D-003).
+	test('sendChatRequest is recorded by the governance gate and does not reach the provider when denied', async function () {
+		let providerCalls = 0;
+		store.add(languageModels.registerLanguageModelProvider('actual-vendor', {
+			onDidChange: Event.None,
+			provideLanguageModelChatInfo: async () => [{
+				identifier: 'actual-lm',
+				metadata: {
+					extension: nullExtensionDescription.identifier,
+					name: 'Pretty Name',
+					vendor: 'actual-vendor',
+					family: 'actual-family',
+					version: 'actual-version',
+					id: 'actual-lm',
+					maxInputTokens: 100,
+					maxOutputTokens: 100,
+					isDefaultForLocation: {}
+				} satisfies ILanguageModelChatMetadata
+			}],
+			sendChatRequest: async () => {
+				providerCalls++;
+				return { stream: new AsyncIterableSource<IChatResponsePart>().asyncIterable, result: Promise.resolve(undefined) };
+			},
+			provideTokenCount: async () => {
+				throw new Error();
+			}
+		}));
+		languageModels.deltaLanguageModelChatProviderDescriptors([
+			{ vendor: 'actual-vendor', displayName: 'Actual Vendor', configuration: undefined, managementCommand: undefined, when: undefined }
+		], []);
+		const [model] = await languageModels.selectLanguageModels({ id: 'actual-lm' });
+		const messages: IChatMessage[] = [{ role: ChatMessageRole.User, content: [{ type: 'text', value: 'hello' }] }];
+
+		await languageModels.sendChatRequest(model, nullExtensionDescription.identifier, messages, {}, CancellationToken.None);
+		governanceGate.outcome = GovernanceOutcome.Denied;
+		await assert.rejects(languageModels.sendChatRequest(model, nullExtensionDescription.identifier, messages, {}, CancellationToken.None));
+
+		assert.deepStrictEqual(
+			{ providerCalls, gated: governanceGate.actions.map(action => ({ kind: action.kind, name: action.name })) },
+			{ providerCalls: 1, gated: [{ kind: GovernedActionKind.Model, name: 'actual-lm' }, { kind: GovernedActionKind.Model, name: 'actual-lm' }] }
+		);
 	});
 
 	test('when clause defaults to true when omitted', async function () {
@@ -762,6 +810,7 @@ suite('LanguageModels - When Clause', function () {
 			new TestNotificationService(),
 			NullOpenerService,
 			NullTelemetryService,
+			new TestGovernanceGate(),
 		);
 
 		languageModelsWithWhen.deltaLanguageModelChatProviderDescriptors([
@@ -828,6 +877,7 @@ suite('LanguageModels - Model Change Events', function () {
 			new TestNotificationService(),
 			NullOpenerService,
 			NullTelemetryService,
+			new TestGovernanceGate(),
 		);
 
 		// Register the vendor first
@@ -1193,6 +1243,7 @@ suite('LanguageModels - Vendor Change Events', function () {
 			new TestNotificationService(),
 			NullOpenerService,
 			NullTelemetryService,
+			new TestGovernanceGate(),
 		);
 	});
 
@@ -1318,6 +1369,7 @@ suite('LanguageModels - Per-Model Configuration', function () {
 			new TestNotificationService(),
 			NullOpenerService,
 			NullTelemetryService,
+			new TestGovernanceGate(),
 		);
 
 		languageModelsService.deltaLanguageModelChatProviderDescriptors([
@@ -1503,6 +1555,7 @@ suite('LanguageModels - Per-Model Configuration with multiple same-vendor groups
 			new TestNotificationService(),
 			NullOpenerService,
 			NullTelemetryService,
+			new TestGovernanceGate(),
 		);
 
 		languageModelsService.deltaLanguageModelChatProviderDescriptors([
@@ -1647,6 +1700,7 @@ suite('LanguageModels - Provider Group Management', function () {
 			new TestNotificationService(),
 			NullOpenerService,
 			NullTelemetryService,
+			new TestGovernanceGate(),
 		);
 
 		languageModelsService.deltaLanguageModelChatProviderDescriptors([
@@ -1805,6 +1859,7 @@ suite('LanguageModels - Provider Group Detail Fallback', function () {
 			new TestNotificationService(),
 			NullOpenerService,
 			NullTelemetryService,
+			new TestGovernanceGate(),
 		));
 
 		languageModelsService.deltaLanguageModelChatProviderDescriptors([
@@ -1880,6 +1935,7 @@ suite('LanguageModels - Provider Group Detail Fallback', function () {
 			new TestNotificationService(),
 			NullOpenerService,
 			NullTelemetryService,
+			new TestGovernanceGate(),
 		));
 
 		languageModelsService.deltaLanguageModelChatProviderDescriptors([
@@ -1944,6 +2000,7 @@ suite('LanguageModels - Provider Group Detail Fallback', function () {
 			new TestNotificationService(),
 			NullOpenerService,
 			NullTelemetryService,
+			new TestGovernanceGate(),
 		));
 
 		languageModelsService.deltaLanguageModelChatProviderDescriptors([
@@ -2038,7 +2095,8 @@ suite('LanguageModels - Provider Deprecation Notice', function () {
 					return true;
 				}
 			},
-			NullTelemetryService
+			NullTelemetryService,
+			new TestGovernanceGate(),
 		));
 
 		service.deltaLanguageModelChatProviderDescriptors([
@@ -2218,6 +2276,7 @@ suite('LanguageModels - provider usage telemetry', function () {
 			new TestNotificationService(),
 			NullOpenerService,
 			telemetry as unknown as ITelemetryService,
+			new TestGovernanceGate(),
 		));
 
 		service.deltaLanguageModelChatProviderDescriptors([

@@ -29,10 +29,12 @@ config** — governance policy sits above `.ide-config.json` in precedence.
 Where it lives (D-003): a platform service in `src/vs/platform/governance/`,
 called from the two chokepoints every tool call and model request already
 passes through — `ILanguageModelToolsService.invokeTool` and
-`ILanguageModelsService.sendChatRequest`. The service, its risk classifier
-and audit log exist with unit tests; wiring them into those call sites is the
-next step. Agent features and UI ride on top, planned as a bundled extension
-that calls into the gate and never carries a gate of its own.
+`ILanguageModelsService.sendChatRequest`. Both call sites are wired: a tool
+call is authorized as the last step before it runs, and a model request is
+recorded before it reaches the provider. The workbench registers the gate,
+an approval dialog and an audit log sink in `src/vs/workbench/contrib/governance/`.
+Agent features and UI ride on top, planned as a bundled extension that calls
+into the gate and never carries a gate of its own.
 
 ## Prompt composition (lives inside the agent orchestrator)
 

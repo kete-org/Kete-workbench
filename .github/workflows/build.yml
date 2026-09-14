@@ -45,6 +45,29 @@ jobs:
       - run: npm run compile
       - run: npm run eslint
 
+      # The governance gate, how tool calls and model requests are described to
+      # it, and the sendChatRequest call site (D-003). Common-layer tests run in
+      # plain Node against the compiled output.
+      - name: Governance unit tests
+        run: >-
+          npm run test-node --
+          --run src/vs/platform/governance/test/common/governanceGate.test.ts
+          --run src/vs/workbench/contrib/governance/test/common/governedActions.test.ts
+          --run src/vs/workbench/contrib/chat/test/common/languageModels.test.ts
+
+      # The invokeTool call site lives in the browser layer, so its tests run in
+      # Electron, which needs a virtual display on Linux. Ubuntu 24.04 blocks
+      # unprivileged user namespaces through AppArmor, which Chromium's sandbox
+      # needs; without them Electron aborts at startup. Allowing them keeps the
+      # sandbox on, rather than running with --no-sandbox.
+      - name: Prepare Electron test environment
+        run: |
+          sudo apt-get install -y --no-install-recommends xvfb
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Tool call-site governance tests
+        run: xvfb-run -a ./scripts/test.sh --run src/vs/workbench/contrib/chat/test/browser/tools/languageModelToolsService.test.ts
+
   build:
     strategy:
       fail-fast: false

@@ -83,8 +83,8 @@ don't look for a way to bypass the ruleset for convenience.
 - Extension gallery is pointed at Open VSX by default — verify licensing/
   availability of the extensions your team actually needs before relying
   on it exclusively.
-- No Kete agent loop yet. The governance gate service, risk classifier and
-  audit log exist in `src/vs/platform/governance/` (with unit tests:
-  `./scripts/test.sh --grep Governance`) but aren't wired into tool or model
-  calls yet. The planned `kete-agent` extension hasn't been started. See
+- No Kete agent loop yet. The governance gate gates every tool call and
+  records every model request (tests: `./scripts/test.sh --grep Governance`,
+  also run in CI), but admin policy pinning and a persistent audit store are
+  still to come. The planned `kete-agent` extension hasn't been started. See
   `ARCHITECTURE.md` and D-003 in `DECISIONS.md`.

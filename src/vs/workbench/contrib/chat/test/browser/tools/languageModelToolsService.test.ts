@@ -21,6 +21,8 @@ import { ContextKeyEqualsExpr, ContextKeyExpr, IContextKeyService } from '../../
 import { IConfirmation, IConfirmationResult, IDialogService } from '../../../../../../platform/dialogs/common/dialogs.js';
 import { TestDialogService } from '../../../../../../platform/dialogs/test/common/testDialogService.js';
 import { ExtensionIdentifier } from '../../../../../../platform/extensions/common/extensions.js';
+import { GovernanceOutcome, GovernedActionKind, IGovernanceGate } from '../../../../../../platform/governance/common/governance.js';
+import { TestGovernanceGate } from '../../../../../../platform/governance/test/common/testGovernanceGate.js';
 import { ConfirmationOptionKind } from '../../../../../../platform/agentHost/common/state/protocol/state.js';
 import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
 import { workbenchInstantiationService } from '../../../../../test/browser/workbenchTestServices.js';
@@ -30,6 +32,7 @@ import { ChatModel, IChatModel } from '../../../common/model/chatModel.js';
 import { IChatService, IChatProgress, IChatInfoMessage, IChatToolInputInvocationData, IChatToolInvocation, ToolConfirmKind } from '../../../common/chatService/chatService.js';
 import { ChatConfiguration, ChatPermissionLevel } from '../../../common/constants.js';
 import { SpecedToolAliases, isToolResultInputOutputDetails, IToolData, IToolImpl, IToolInvocation, ToolDataSource, IToolResultTextPart, ToolAndToolSetEnablementMap } from '../../../common/tools/languageModelToolsService.js';
+import { TerminalToolId } from '../../../common/tools/terminalToolIds.js';
 import { MockChatService } from '../../common/chatService/mockChatService.js';
 import { ChatToolInvocation } from '../../../common/model/chatProgressTypes/chatToolInvocation.js';
 import { LocalChatSessionUri } from '../../../common/model/chatUri.js';
@@ -182,6 +185,7 @@ interface TestToolsServiceSetup {
 	service: LanguageModelToolsService;
 	contextKeyService: IContextKeyService;
 	riskAssessmentService: TestChatToolRiskAssessmentService;
+	governanceGate: TestGovernanceGate;
 }
 
 interface TestToolsServiceOptions {
@@ -215,6 +219,8 @@ function createTestToolsService(store: ReturnType<typeof ensureNoDisposablesAreL
 	instaService.stub(IChatService, chatService);
 	instaService.stub(ILanguageModelToolsConfirmationService, new MockLanguageModelToolsConfirmationService());
 	instaService.stub(IToolResultCompressor, noopToolResultCompressor);
+	const governanceGate = new TestGovernanceGate();
+	instaService.stub(IGovernanceGate, governanceGate);
 	const riskAssessmentService = new TestChatToolRiskAssessmentService();
 	instaService.stub(IChatToolRiskAssessmentService, riskAssessmentService);
 
@@ -235,7 +241,7 @@ function createTestToolsService(store: ReturnType<typeof ensureNoDisposablesAreL
 	}
 
 	const service = store.add(instaService.createInstance(LanguageModelToolsService));
-	return { configurationService, chatService, service, contextKeyService, riskAssessmentService };
+	return { configurationService, chatService, service, contextKeyService, riskAssessmentService, governanceGate };
 }
 
 /**
@@ -279,6 +285,7 @@ suite('LanguageModelToolsService', () => {
 	let service: LanguageModelToolsService;
 	let chatService: MockChatService;
 	let configurationService: TestConfigurationService;
+	let governanceGate: TestGovernanceGate;
 
 	setup(() => {
 		const setup = createTestToolsService(store);
@@ -286,6 +293,7 @@ suite('LanguageModelToolsService', () => {
 		chatService = setup.chatService;
 		service = setup.service;
 		contextKeyService = setup.contextKeyService;
+		governanceGate = setup.governanceGate;
 	});
 
 	function setupToolsForTest(service: LanguageModelToolsService, store: any) {
@@ -514,6 +522,50 @@ suite('LanguageModelToolsService', () => {
 
 		const result = await service.invokeTool(dto, async () => 0, CancellationToken.None);
 		assert.strictEqual(result.content[0].value, 'result');
+	});
+
+	// Fails if invokeTool ever stops passing tool calls through the governance gate (D-003).
+	test('invokeTool passes terminal commands to the governance gate before running the tool', async () => {
+		let invoked = 0;
+		store.add(service.registerToolData({ id: TerminalToolId.RunInTerminal, modelDescription: 'Run in terminal', displayName: 'Run in Terminal', source: ToolDataSource.Internal }));
+		store.add(service.registerToolImplementation(TerminalToolId.RunInTerminal, {
+			invoke: async () => {
+				invoked++;
+				return { content: [{ kind: 'text', value: 'ran' }] };
+			}
+		}));
+
+		const result = await service.invokeTool({
+			callId: '1',
+			toolId: TerminalToolId.RunInTerminal,
+			tokenBudget: 100,
+			parameters: { command: 'kubectl --context prod apply -f .' },
+			context: undefined,
+		}, async () => 0, CancellationToken.None);
+
+		assert.deepStrictEqual(
+			{ result: result.content[0].value, invoked, gated: governanceGate.actions.map(action => ({ kind: action.kind, name: action.name, commandLine: action.commandLine })) },
+			{ result: 'ran', invoked: 1, gated: [{ kind: GovernedActionKind.Tool, name: TerminalToolId.RunInTerminal, commandLine: 'kubectl --context prod apply -f .' }] }
+		);
+	});
+
+	test('invokeTool does not run a tool the governance gate denies', async () => {
+		let invoked = 0;
+		store.add(service.registerToolData({ id: 'testTool', modelDescription: 'Test Tool', displayName: 'Test Tool', source: ToolDataSource.Internal }));
+		store.add(service.registerToolImplementation('testTool', {
+			invoke: async () => {
+				invoked++;
+				return { content: [{ kind: 'text', value: 'result' }] };
+			}
+		}));
+		governanceGate.outcome = GovernanceOutcome.Denied;
+
+		const result = await service.invokeTool({ callId: '1', toolId: 'testTool', tokenBudget: 100, parameters: {}, context: undefined }, async () => 0, CancellationToken.None);
+
+		assert.deepStrictEqual(
+			{ invoked, deniedMessage: String(result.content[0].value).includes('did not allow this action') },
+			{ invoked: 0, deniedMessage: true }
+		);
 	});
 
 	test('invokeTool uses re-registered implementation after prepareToolInvocation', async () => {
@@ -2551,6 +2603,7 @@ suite('LanguageModelToolsService', () => {
 		instaService1.stub(IAccessibilitySignalService, testAccessibilitySignalService as unknown as IAccessibilitySignalService);
 		instaService1.stub(ILanguageModelToolsConfirmationService, new MockLanguageModelToolsConfirmationService());
 		instaService1.stub(IToolResultCompressor, noopToolResultCompressor);
+		instaService1.stub(IGovernanceGate, new TestGovernanceGate());
 		const testService1 = store.add(instaService1.createInstance(LanguageModelToolsService));
 
 		const tool1 = registerToolForTest(testService1, store, 'soundOnlyTool', {
@@ -2593,6 +2646,7 @@ suite('LanguageModelToolsService', () => {
 		instaService2.stub(IAccessibilitySignalService, testAccessibilitySignalService as unknown as IAccessibilitySignalService);
 		instaService2.stub(ILanguageModelToolsConfirmationService, new MockLanguageModelToolsConfirmationService());
 		instaService2.stub(IToolResultCompressor, noopToolResultCompressor);
+		instaService2.stub(IGovernanceGate, new TestGovernanceGate());
 		const testService2 = store.add(instaService2.createInstance(LanguageModelToolsService));
 
 		const tool2 = registerToolForTest(testService2, store, 'autoScreenReaderTool', {
@@ -2636,6 +2690,7 @@ suite('LanguageModelToolsService', () => {
 		instaService3.stub(IAccessibilitySignalService, testAccessibilitySignalService as unknown as IAccessibilitySignalService);
 		instaService3.stub(ILanguageModelToolsConfirmationService, new MockLanguageModelToolsConfirmationService());
 		instaService3.stub(IToolResultCompressor, noopToolResultCompressor);
+		instaService3.stub(IGovernanceGate, new TestGovernanceGate());
 		const testService3 = store.add(instaService3.createInstance(LanguageModelToolsService));
 
 		const tool3 = registerToolForTest(testService3, store, 'offTool', {
@@ -3430,6 +3485,7 @@ suite('LanguageModelToolsService', () => {
 		instaService.stub(IChatService, chatService);
 		instaService.stub(ILanguageModelToolsConfirmationService, new MockLanguageModelToolsConfirmationService());
 		instaService.stub(IToolResultCompressor, noopToolResultCompressor);
+		instaService.stub(IGovernanceGate, new TestGovernanceGate());
 		const testService = store.add(instaService.createInstance(LanguageModelToolsService));
 
 		const tool = registerToolForTest(testService, store, 'gitCommitTool', {
@@ -3469,6 +3525,7 @@ suite('LanguageModelToolsService', () => {
 		instaService.stub(IChatService, chatService);
 		instaService.stub(ILanguageModelToolsConfirmationService, new MockLanguageModelToolsConfirmationService());
 		instaService.stub(IToolResultCompressor, noopToolResultCompressor);
+		instaService.stub(IGovernanceGate, new TestGovernanceGate());
 		const testService = store.add(instaService.createInstance(LanguageModelToolsService));
 
 		// Tool that was previously namespaced under extension but is now internal
@@ -3509,6 +3566,7 @@ suite('LanguageModelToolsService', () => {
 		instaService.stub(IChatService, chatService);
 		instaService.stub(ILanguageModelToolsConfirmationService, new MockLanguageModelToolsConfirmationService());
 		instaService.stub(IToolResultCompressor, noopToolResultCompressor);
+		instaService.stub(IGovernanceGate, new TestGovernanceGate());
 		const testService = store.add(instaService.createInstance(LanguageModelToolsService));
 
 		// Tool that was previously namespaced under extension but is now internal
@@ -3552,6 +3610,7 @@ suite('LanguageModelToolsService', () => {
 		instaService.stub(IChatService, chatService);
 		instaService.stub(ILanguageModelToolsConfirmationService, new MockLanguageModelToolsConfirmationService());
 		instaService.stub(IToolResultCompressor, noopToolResultCompressor);
+		instaService.stub(IGovernanceGate, new TestGovernanceGate());
 		const testService = store.add(instaService.createInstance(LanguageModelToolsService));
 
 		// Tool that was previously namespaced under extension but is now internal

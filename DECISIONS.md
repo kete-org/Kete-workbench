@@ -6,6 +6,58 @@ information — add a superseding entry instead of editing an old one.
 
 ---
 
+## D-004 — The working name is "Kete Workbench"
+
+**Status:** accepted
+**Date:** 2026-09-14
+**Supersedes:** D-000
+
+### Context
+
+D-000 required settling the name before Phase 0.2 produced artifacts. That
+point has arrived: CI now packages macOS arm64, macOS x64 and Windows x64
+builds. The name went from "Kente Studio" to "Kente Workbench", and a
+"Milawei Workbench" rename was drafted on a branch but not adopted. The
+GitHub organisation and repository are `kete-org/Kete-workbench`.
+
+### Decision
+
+The product's working name is **Kete Workbench**, and every identifier that
+is written to a user's machine now derives from it:
+
+| Key | Value |
+|---|---|
+| `nameShort`, `nameLong`, `win32DirName`, `win32NameVersion` | `Kete Workbench` |
+| `applicationName`, `urlProtocol`, `linuxIconName` | `kete-workbench` |
+| `dataFolderName`, `sharedDataFolderName` | `.kete-workbench`, `.kete-workbench-shared` |
+| `serverApplicationName`, `serverDataFolderName`, `tunnelApplicationName` | `kete-workbench-server`, `.kete-workbench-server`, `kete-workbench-tunnel` |
+| `darwinBundleIdentifier` | `dev.keteworkbench.desktop` |
+| `win32AppUserModelId`, `win32RegValueName` | `KeteWorkbench.KeteWorkbench`, `KeteWorkbench` |
+| `win32MutexName`, `win32TunnelMutex`, `win32TunnelServiceMutex` | `keteworkbench`, `keteworkbench-tunnel`, `keteworkbench-tunnelservice` |
+| win32 AppIds, `darwinProfileUUID`, `darwinProfilePayloadUUID` | newly generated GUIDs |
+
+The rebrand had left several of these at their Code - OSS values, including
+the Windows AppIds, URL protocol, shared data folder and server/tunnel names.
+On a machine that also has Code - OSS installed, identical AppIds make the
+installers treat the two as the same application, and a shared URL protocol
+and data folder make them compete for links and state. All of them now carry
+this product's name. `licenseUrl` and `reportIssueUrl` point at this
+repository instead of `microsoft/vscode`.
+
+### Consequences
+
+- Once installable builds are distributed, renaming again requires a
+  profile-migration path, not a find-and-replace (the reason D-000 existed).
+- Governance setting IDs use the `kete.` prefix (`kete.governance.enabled`,
+  `kete.governance.approvalThreshold`).
+- Files authored for this fork carry a "Kete Workbench contributors"
+  copyright header; `build/hygiene.ts` and `eslint.config.js` accept it
+  alongside Microsoft's.
+- The git branch `kente/tier0-foundation` keeps its old spelling, since
+  renaming it would close its open pull request.
+
+---
+
 ## D-003 — Governance gate lives in `platform/`, agent features live above it
 
 **Status:** accepted
@@ -27,7 +79,7 @@ VS Code 1.139, which already ships:
 | Agent sessions workbench layer | `src/vs/sessions/` | — |
 
 So the real question is not "how do we build an orchestrator" but "how do we
-route the one we inherited through a Kente governance gate."
+route the one we inherited through a Kete governance gate."
 
 ### Findings from the spike
 
@@ -92,7 +144,7 @@ of option B.
 
 ### Consequences and limits
 
-- **Scope of the gate is the Kente agent and anything using the LM/tools
+- **Scope of the gate is the Kete agent and anything using the LM/tools
   APIs — not arbitrary extension code.** A third-party extension can still
   open its own socket. Constraining that is an extension-permissions problem,
   a separate and much larger piece of work. We must not describe the gate as
@@ -147,7 +199,7 @@ primarily on merge surface.
 
 ## D-000 — The name "Kente Workbench" is provisional
 
-**Status:** open — must be settled before Phase 0.2 ships an installable build
+**Status:** superseded by D-004
 
 Changed from "Kente Studio". Still not final.
 

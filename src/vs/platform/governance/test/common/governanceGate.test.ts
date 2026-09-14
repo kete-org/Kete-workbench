@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Kente Workbench contributors. All rights reserved.
+ *  Copyright (c) Kete Workbench contributors. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -43,7 +43,7 @@ function action(overrides: Partial<IGovernedAction> = {}): IGovernedAction {
 	return {
 		kind: GovernedActionKind.Tool,
 		name: 'run_in_terminal',
-		origin: 'kente.agent',
+		origin: 'kete.agent',
 		sessionId: 'session-1',
 		...overrides,
 	};

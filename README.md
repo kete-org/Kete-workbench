@@ -1,4 +1,4 @@
-# Kente Workbench
+# Kete Workbench
 
 [![Build](https://github.com/kete-org/Kete-workbench/actions/workflows/build.yml/badge.svg)](https://github.com/kete-org/Kete-workbench/actions/workflows/build.yml)
 
@@ -6,12 +6,12 @@ A code editor with an embedded, governance-aware coding agent, built for
 African developer economics: cost-tiered model routing, offline-first
 operation, and support for low-spec hardware.
 
-Kente Workbench is a fork of [`microsoft/vscode`](https://github.com/microsoft/vscode)
+Kete Workbench is a fork of [`microsoft/vscode`](https://github.com/microsoft/vscode)
 ("Code - OSS"). It is an independent project and is not affiliated with or
 endorsed by Microsoft.
 
-> **"Kente Workbench" is a working name** and may change before the first
-> release. See [D-000 in DECISIONS.md](DECISIONS.md#d-000--the-name-kente-workbench-is-provisional).
+> **"Kete Workbench" is the working name.** See
+> [D-004 in DECISIONS.md](DECISIONS.md#d-004--the-working-name-is-kete-workbench).
 
 ## Status
 
@@ -20,10 +20,10 @@ Tier 0 (foundation).
 
 | Area | State |
 |---|---|
-| Editor shell rebrand (`product.json`) | Done; some upstream identifiers remain (URL protocol, Windows AppIds) pending the final name |
+| Editor shell rebrand (`product.json`) | Done |
 | Extension gallery → Open VSX | Done |
 | Telemetry off by default | Done |
-| Native packaging CI (macOS arm64/x64, Windows x64) | In progress — not yet green |
+| Native packaging CI (macOS arm64/x64, Windows x64) | Passing; produces unsigned packages as CI artifacts |
 | Governance gate, risk classifier, audit log | Implemented and unit-tested in `src/vs/platform/governance/`; not yet wired into tool or model calls |
 | Product icons | Still upstream VS Code artwork |
 
@@ -103,7 +103,7 @@ Output is written beside the repository, e.g. `../VSCode-darwin-arm64`.
   ships as well as to how it is developed; don't build shortcuts around it.
 - Code follows upstream VS Code conventions (tabs, localized user-facing
   strings, disposables registered on creation). New files carry the
-  Kente Workbench copyright header; upstream files keep Microsoft's.
+  Kete Workbench copyright header; upstream files keep Microsoft's.
 - [CLAUDE.md](CLAUDE.md) holds the hard rules and known gotchas, and is the
   briefing file for AI coding assistants working in this repository.
 
@@ -125,8 +125,8 @@ changes:
 
 ## License
 
-[MIT](LICENSE.txt). Kente Workbench is built on Code - OSS, Copyright (c)
-Microsoft Corporation; additions in this fork are Copyright (c) Kente Workbench
+[MIT](LICENSE.txt). Kete Workbench is built on Code - OSS, Copyright (c)
+Microsoft Corporation; additions in this fork are Copyright (c) Kete Workbench
 contributors. Third-party components are listed in
 [ThirdPartyNotices.txt](ThirdPartyNotices.txt).
 

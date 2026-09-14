@@ -17,7 +17,7 @@ import * as formatter from './lib/formatter.ts';
 import gulpstylelint from './stylelint.ts';
 
 // Upstream files keep Microsoft's header. Files authored for this fork carry the
-// Kente Workbench header instead — claiming Microsoft copyright on code they did
+// Kete Workbench header instead — claiming Microsoft copyright on code they did
 // not write would be plainly wrong. Either variant is accepted.
 const copyrightHeaderVariants = [
 	[
@@ -28,7 +28,7 @@ const copyrightHeaderVariants = [
 	],
 	[
 		'/*---------------------------------------------------------------------------------------------',
-		' *  Copyright (c) Kente Workbench contributors. All rights reserved.',
+		' *  Copyright (c) Kete Workbench contributors. All rights reserved.',
 		' *  Licensed under the MIT License. See License.txt in the project root for license information.',
 		' *--------------------------------------------------------------------------------------------*/',
 	],
@@ -103,7 +103,7 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 	const productJson = es.through(function (file: VinylFile) {
 		const product = JSON.parse(file.contents!.toString('utf8'));
 
-		// Kente Workbench: as a third-party fork we must ship our own gallery
+		// Kete Workbench: as a third-party fork we must ship our own gallery
 		// (Open VSX), so extensionsGallery is expected to be present. What must
 		// never come back is Microsoft's marketplace, whose terms do not permit
 		// use by forks.

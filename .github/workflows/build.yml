@@ -1,4 +1,4 @@
-name: Build Kente Workbench
+name: Build Kete Workbench
 
 # Each platform package is built natively on its own OS: Electron native
 # modules (node-gyp) are not reliably cross-compiled.
@@ -129,7 +129,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: kente-workbench-${{ matrix.platform }}-${{ matrix.arch }}
+          name: kete-workbench-${{ matrix.platform }}-${{ matrix.arch }}
           path: artifacts/**
           if-no-files-found: error
           retention-days: 14

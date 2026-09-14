@@ -1,15 +1,15 @@
 --- product.json (Microsoft original — reference)
-+++ product.json (Kente Workbench)
++++ product.json (Kete Workbench)
 
 @@ Identity — must change, referenced throughout the UI and OS integration @@
 - "nameShort": "Code - OSS",
 - "nameLong": "Code - OSS",
 - "applicationName": "code-oss",
 - "dataFolderName": ".vscode-oss",
-+ "nameShort": "Kente Workbench",
-+ "nameLong": "Kente Workbench",
-+ "applicationName": "kente-workbench",
-+ "dataFolderName": ".kente-workbench",
++ "nameShort": "Kete Workbench",
++ "nameLong": "Kete Workbench",
++ "applicationName": "kete-workbench",
++ "dataFolderName": ".kete-workbench",
 
 @@ Platform-specific identifiers — required, OS-level registration @@
 - "win32MutexName": "vscodeoss",
@@ -18,12 +18,12 @@
 - "win32AppUserModelId": "Microsoft.CodeOSS",
 - "win32ShellNameShort": "C&ode OSS",
 - "darwinBundleIdentifier": "com.visualstudio.code.oss",
-+ "win32MutexName": "kenteworkbench",
-+ "win32DirName": "Kente Workbench",
-+ "win32NameVersion": "Kente Workbench",
-+ "win32AppUserModelId": "KenteWorkbench.KenteWorkbench",
-+ "win32ShellNameShort": "&Kente Workbench",
-+ "darwinBundleIdentifier": "dev.kenteworkbench.desktop",
++ "win32MutexName": "keteworkbench",
++ "win32DirName": "Kete Workbench",
++ "win32NameVersion": "Kete Workbench",
++ "win32AppUserModelId": "KeteWorkbench.KeteWorkbench",
++ "win32ShellNameShort": "&Kete Workbench",
++ "darwinBundleIdentifier": "dev.keteworkbench.desktop",
 
 @@ Extension marketplace — Microsoft's gallery terms don't permit third-party @@
 @@ forks to use it; point at Open VSX or your own gallery instead @@
@@ -48,7 +48,7 @@
 @@ Auto-update — point at your own internal artifact host once it exists @@
 @@ (the ../VSCode-*/ build output from build.yml), leave unset until then @@
 - "updateUrl": "https://update.code.visualstudio.com",
-+ // "updateUrl": "https://updates.<your-internal-host>/kente-workbench",
++ // "updateUrl": "https://updates.<your-internal-host>/kete-workbench",
 
 @@ Icons — replace files under resources/{darwin,win32,linux}/ to match @@
 @@ (product.json just references filenames, no key changes needed there) @@

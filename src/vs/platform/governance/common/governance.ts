@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Kente Workbench contributors. All rights reserved.
+ *  Copyright (c) Kete Workbench contributors. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -145,7 +145,7 @@ export interface IGovernanceGate {
  */
 export const GovernanceConfigKeys = {
 	/** Lowest tier that requires human approval. */
-	ApprovalThreshold: 'kente.governance.approvalThreshold',
+	ApprovalThreshold: 'kete.governance.approvalThreshold',
 	/** When false, the audit log is still written but nothing is gated. Dev only. */
-	Enabled: 'kente.governance.enabled',
+	Enabled: 'kete.governance.enabled',
 } as const;

@@ -6,14 +6,16 @@ Read this fully before making changes. See also `ARCHITECTURE.md` and
 
 ## What this repo is
 
-Kente Workbench — a fork of `microsoft/vscode` with an embedded, governance-
+Kete Workbench — a fork of `microsoft/vscode` with an embedded, governance-
 aware coding agent, built for African developer economics (cost-tiered
 model routing, offline-first, low-spec-hardware support). Currently in
 Tier 0 (foundation): forking and de-branding the editor shell before any
 agent code exists.
 
-**"Kente Workbench" is a working/placeholder name** — not finalized. See
-`DECISIONS.md` for why it changed from "Kente Studio."
+**"Kete Workbench" is the working name** (D-004 in `DECISIONS.md`), earlier
+"Kente Studio" and "Kente Workbench". Every identifier `product.json` writes
+to a user's machine derives from it, so a later rename needs a
+profile-migration path — don't change these keys casually.
 
 ## Tech stack
 

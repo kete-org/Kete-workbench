@@ -143,7 +143,7 @@ const electronAssetResolver = electronFeed
 export const config = {
 	version: electronVersion,
 	productAppName: product.nameLong,
-	// Kente Workbench: this build is not published by Microsoft, so the executable's
+	// Kete Workbench: this build is not published by Microsoft, so the executable's
 	// version resource must not name it as the company or copyright holder.
 	companyName: `${product.nameLong} contributors`,
 	copyright: `Copyright (C) 2026 ${product.nameLong} contributors. All rights reserved`,

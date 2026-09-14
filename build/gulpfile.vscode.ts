@@ -663,7 +663,7 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 			await rcedit(fullPath, {
 				'file-version': baseVersion,
 				'version-string': {
-					// Kente Workbench: not published by Microsoft; see build/lib/electron.ts.
+					// Kete Workbench: not published by Microsoft; see build/lib/electron.ts.
 					'CompanyName': `${product.nameLong} contributors`,
 					'FileDescription': product.nameLong,
 					'FileVersion': packageJson.version,

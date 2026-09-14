@@ -470,7 +470,7 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
  * but must be compiled from source and included in the build.
  */
 export function packageCopilotExtensionStream(disableMangle: boolean): Stream {
-	// Kente Workbench does not ship the GitHub Copilot extension. Being listed in
+	// Kete Workbench does not ship the GitHub Copilot extension. Being listed in
 	// `excludedExtensions` only keeps it out of the generic local-extensions
 	// stream; every desktop and server packaging task still pulls it in through
 	// this function, together with the proprietary @github/copilot CLI in its

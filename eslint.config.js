@@ -151,7 +151,7 @@ export default defineConfig(
 		},
 	},
 	// Code authored for this fork rather than inherited from upstream. It carries
-	// the Kente Workbench copyright; claiming Microsoft's on files they did not
+	// the Kete Workbench copyright; claiming Microsoft's on files they did not
 	// write would be plainly wrong. Keep this list in sync with build/hygiene.ts.
 	{
 		files: [
@@ -163,7 +163,7 @@ export default defineConfig(
 				'block',
 				[
 					'---------------------------------------------------------------------------------------------',
-					' *  Copyright (c) Kente Workbench contributors. All rights reserved.',
+					' *  Copyright (c) Kete Workbench contributors. All rights reserved.',
 					' *  Licensed under the MIT License. See License.txt in the project root for license information.',
 					' *--------------------------------------------------------------------------------------------'
 				]

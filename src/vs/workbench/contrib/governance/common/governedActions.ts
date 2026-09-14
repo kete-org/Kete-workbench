@@ -10,14 +10,78 @@ import type { IToolData, IToolInvocation } from '../../chat/common/tools/languag
 import { TerminalToolId } from '../../chat/common/tools/terminalToolIds.js';
 
 /**
- * Tools that run their `command` parameter in a shell. The gate classifies a
- * shell action by its command line, so a tool missing from this set is judged
- * by its name alone and a remote command it runs would be under-classified.
+ * The strings in a task definition's `command` or `args`. Besides plain strings,
+ * tasks accept `{ value, quoting }` objects whose `value` is a string or an
+ * array of strings, and the task tool writes whatever it is given into
+ * tasks.json, so those count too.
  */
-const COMMAND_LINE_TOOLS: ReadonlySet<string> = new Set<string>([
-	TerminalToolId.RunInTerminal,
-	TerminalToolId.SendToTerminal,
-]);
+function taskStrings(value: unknown): string[] {
+	if (typeof value === 'string') {
+		return [value];
+	}
+	if (Array.isArray(value)) {
+		return value.flatMap(taskStrings);
+	}
+	if (value && typeof value === 'object') {
+		return taskStrings((value as { value?: unknown }).value);
+	}
+	return [];
+}
+
+/**
+ * The command line a task definition runs: its command followed by its
+ * arguments. Joined with spaces and without the quoting the task system would
+ * add, which can only split an argument into more segments to classify, never
+ * hide one.
+ */
+function taskCommandLine(task: unknown): string | undefined {
+	if (!task || typeof task !== 'object') {
+		return undefined;
+	}
+	const { command, args } = task as { command?: unknown; args?: unknown };
+	const parts = [...taskStrings(command), ...taskStrings(args)];
+	return parts.length > 0 ? parts.join(' ') : undefined;
+}
+
+/**
+ * Every version of a terminal tool's command line: the model's, and once the
+ * tool has prepared the call, the tool's rewrite and the person's edit. The one
+ * that will run comes first, then the others, one per line, so the gate judges
+ * the riskiest and the audit entry shows all of them.
+ */
+function terminalCommandLine(invocation: IToolInvocation): string | undefined {
+	const command: unknown = invocation.parameters?.command;
+	const prepared = invocation.toolSpecificData?.kind === 'terminal' ? invocation.toolSpecificData.commandLine : undefined;
+	const variants = [
+		prepared?.userEdited ?? prepared?.toolEdited ?? prepared?.original,
+		prepared?.original,
+		prepared?.toolEdited,
+		prepared?.userEdited,
+		command,
+	].filter((variant): variant is string => typeof variant === 'string');
+	return variants.length > 0 ? [...new Set(variants)].join('\n') : undefined;
+}
+
+/**
+ * The command line a tool call runs, for tools that run one. The gate
+ * classifies a tool by its id and by this command line, so a command-running
+ * tool missing here would have a remote command it runs under-classified.
+ */
+function toolCommandLine(invocation: IToolInvocation, tool: IToolData): string | undefined {
+	switch (tool.id) {
+		case TerminalToolId.RunInTerminal:
+		case TerminalToolId.SendToTerminal:
+		// Approves a command that Copilot CLI then runs itself, outside the gate.
+		case TerminalToolId.ConfirmTerminalCommand:
+			return terminalCommandLine(invocation);
+		case TerminalToolId.CreateAndRunTask:
+			return taskCommandLine(invocation.parameters?.task);
+		default:
+			// run_task names an existing task whose command isn't in the call; the
+			// classifier treats it conservatively instead.
+			return undefined;
+	}
+}
 
 /** Session id recorded for actions that don't belong to a chat session. */
 export const UNSCOPED_SESSION_ID = 'unscoped';
@@ -38,13 +102,12 @@ function toolOrigin(tool: IToolData): string {
  * tools that run one.
  */
 export function governedToolAction(invocation: IToolInvocation, tool: IToolData): IGovernedAction {
-	const command: unknown = invocation.parameters?.command;
 	return {
 		kind: GovernedActionKind.Tool,
 		name: tool.id,
 		origin: toolOrigin(tool),
 		sessionId: invocation.context ? chatSessionResourceToId(invocation.context.sessionResource) : UNSCOPED_SESSION_ID,
-		commandLine: COMMAND_LINE_TOOLS.has(tool.id) && typeof command === 'string' ? command : undefined,
+		commandLine: toolCommandLine(invocation, tool),
 		detail: { callId: invocation.callId, source: tool.source.type },
 	};
 }

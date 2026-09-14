@@ -18,7 +18,7 @@ import {
 	IGovernedAction,
 } from '../../common/governance.js';
 import { IAuditEntry, IAuditSink, InMemoryAuditSink } from '../../common/governanceAuditLog.js';
-import { classifyCommandLine } from '../../common/governanceClassifier.js';
+import { classifyAction, classifyCommandLine } from '../../common/governanceClassifier.js';
 import { GovernanceGate } from '../../common/governanceGate.js';
 
 class StubApprover implements IGovernanceApprover {
@@ -88,6 +88,116 @@ suite('Governance classifier', () => {
 
 	test('a docker client pointed at a remote daemon is not a local action', () => {
 		assert.strictEqual(classifyCommandLine('docker -H tcp://10.0.0.4:2375 ps'), GovernanceRiskTier.RemoteInfra);
+	});
+
+	test('sees through separators, wrappers, quoting and global options', () => {
+		const commandLines = [
+			'echo ok\nkubectl --context prod apply -f .',
+			'npm run build & kubectl --context prod delete ns app',
+			'echo $(terraform apply -auto-approve)',
+			'bash -c "git push origin main"',
+			'sudo -u deploy kubectl --context prod apply -f .',
+			'env DOCKER_HOST=tcp://10.0.0.4:2375 docker ps',
+			'DOCKER_HOST=ssh://prod docker ps',
+			'git -C infra push origin main',
+			'git push origin "main"',
+			'git push origin +feature/thing',
+			'terraform -chdir=infra apply',
+			'C:\\tools\\KUBECTL.EXE --context prod get pods',
+			'echo ${command:git.push}',
+			// These stay local: flags that belong to the container, paths that aren't programs, local contexts.
+			'docker run --rm alpine sh -c "echo hi"',
+			'npx prettier --write infra/terraform',
+			'helm --kube-context kind-dev upgrade app ./chart',
+		];
+		assert.deepStrictEqual(
+			Object.fromEntries(commandLines.map(commandLine => [commandLine, classifyCommandLine(commandLine)])),
+			{
+				'echo ok\nkubectl --context prod apply -f .': GovernanceRiskTier.RemoteInfra,
+				'npm run build & kubectl --context prod delete ns app': GovernanceRiskTier.RemoteInfra,
+				'echo $(terraform apply -auto-approve)': GovernanceRiskTier.Production,
+				'bash -c "git push origin main"': GovernanceRiskTier.Production,
+				'sudo -u deploy kubectl --context prod apply -f .': GovernanceRiskTier.RemoteInfra,
+				'env DOCKER_HOST=tcp://10.0.0.4:2375 docker ps': GovernanceRiskTier.RemoteInfra,
+				'DOCKER_HOST=ssh://prod docker ps': GovernanceRiskTier.RemoteInfra,
+				'git -C infra push origin main': GovernanceRiskTier.Production,
+				'git push origin "main"': GovernanceRiskTier.Production,
+				'git push origin +feature/thing': GovernanceRiskTier.Production,
+				'terraform -chdir=infra apply': GovernanceRiskTier.Production,
+				'C:\\tools\\KUBECTL.EXE --context prod get pods': GovernanceRiskTier.RemoteInfra,
+				'echo ${command:git.push}': GovernanceRiskTier.RemoteInfra,
+				'docker run --rm alpine sh -c "echo hi"': GovernanceRiskTier.LocalInfra,
+				'npx prettier --write infra/terraform': GovernanceRiskTier.LocalWrite,
+				'helm --kube-context kind-dev upgrade app ./chart': GovernanceRiskTier.LocalInfra,
+			}
+		);
+	});
+
+	test('recognises deploys, merges, publishing and remote databases', () => {
+		const commandLines = [
+			'gh pr merge 42 --squash',
+			'gh pr view 42',
+			'gcloud run deploy api --image app:1',
+			'vercel --prod',
+			'npm publish',
+			'npm run deploy',
+			'make deploy',
+			'make test',
+			'docker push registry.example.com/app:1',
+			'psql -h prod-db.internal -c "DELETE FROM users"',
+			'psql postgres://app@localhost:5432/app',
+			'minikube start',
+		];
+		assert.deepStrictEqual(
+			Object.fromEntries(commandLines.map(commandLine => [commandLine, classifyCommandLine(commandLine)])),
+			{
+				'gh pr merge 42 --squash': GovernanceRiskTier.Production,
+				'gh pr view 42': GovernanceRiskTier.RemoteInfra,
+				'gcloud run deploy api --image app:1': GovernanceRiskTier.Production,
+				'vercel --prod': GovernanceRiskTier.Production,
+				'npm publish': GovernanceRiskTier.Production,
+				'npm run deploy': GovernanceRiskTier.RemoteInfra,
+				'make deploy': GovernanceRiskTier.RemoteInfra,
+				'make test': GovernanceRiskTier.LocalWrite,
+				'docker push registry.example.com/app:1': GovernanceRiskTier.RemoteInfra,
+				'psql -h prod-db.internal -c "DELETE FROM users"': GovernanceRiskTier.RemoteInfra,
+				'psql postgres://app@localhost:5432/app': GovernanceRiskTier.LocalWrite,
+				'minikube start': GovernanceRiskTier.LocalInfra,
+			}
+		);
+	});
+
+	test('classifies tools by id, trusting a known id only from the tool\'s owner', () => {
+		const tool = (name: string, origin: string, commandLine?: string) => classifyAction({ kind: GovernedActionKind.Tool, name, origin, sessionId: 's', commandLine });
+
+		assert.deepStrictEqual(
+			{
+				coreRead: tool('manage_todo_list', 'internal'),
+				copilotRead: tool('copilot_readFile', 'GitHub.copilot-chat'),
+				copilotReadFromAnotherExtension: tool('copilot_readFile', 'someone.else'),
+				fetchesModelChosenUrl: tool('vscode_fetchWebPage_internal', 'internal'),
+				runsExistingTask: tool('run_task', 'internal'),
+				runsExistingTaskFromAnotherExtension: tool('run_task', 'someone.else'),
+				runsAnyEditorCommand: tool('copilot_runVscodeCommand', 'GitHub.copilot-chat'),
+				mcpTool: tool('create_issue', 'mcp:github'),
+				placeholderNameThatIsNotARealId: tool('read_file', 'internal'),
+				emptyCommandLine: tool('run_in_terminal', 'internal', ''),
+				commandLineRaisesTheTier: tool('vscode_askQuestions', 'internal', 'terraform apply'),
+			},
+			{
+				coreRead: GovernanceRiskTier.Read,
+				copilotRead: GovernanceRiskTier.Read,
+				copilotReadFromAnotherExtension: GovernanceRiskTier.LocalWrite,
+				fetchesModelChosenUrl: GovernanceRiskTier.LocalWrite,
+				runsExistingTask: GovernanceRiskTier.RemoteInfra,
+				runsExistingTaskFromAnotherExtension: GovernanceRiskTier.RemoteInfra,
+				runsAnyEditorCommand: GovernanceRiskTier.RemoteInfra,
+				mcpTool: GovernanceRiskTier.LocalWrite,
+				placeholderNameThatIsNotARealId: GovernanceRiskTier.LocalWrite,
+				emptyCommandLine: GovernanceRiskTier.LocalWrite,
+				commandLineRaisesTheTier: GovernanceRiskTier.Production,
+			}
+		);
 	});
 });
 

@@ -54,6 +54,13 @@ export class CreateAndRunTaskTool implements IToolImpl {
 			return { content: [{ kind: 'text', value: `No invocation context` }], toolResultMessage: `No invocation context` };
 		}
 
+		// Kete Workbench: the governance gate judges this call by the command in its
+		// parameters, so it must never run a different task that shares the label.
+		// Existing tasks are run through run_task, which the gate treats as unseen.
+		if ((await this._tasksService.tasks())?.some(t => t._label === args.task.label)) {
+			return this._labelTakenResult(args.task.label);
+		}
+
 		const tasksJsonUri = URI.file(args.workspaceFolder).with({ path: `${args.workspaceFolder}/.vscode/tasks.json` });
 		const exists = await this._fileService.exists(tasksJsonUri);
 
@@ -87,7 +94,12 @@ export class CreateAndRunTaskTool implements IToolImpl {
 		let task: Task | undefined;
 		const start = Date.now();
 		while (Date.now() - start < 5000 && !token.isCancellationRequested) {
-			task = (await this._tasksService.tasks())?.find(t => t._label === args.task.label);
+			const labelled = (await this._tasksService.tasks())?.filter(t => t._label === args.task.label) ?? [];
+			// Kete Workbench: a task with this label appeared after the check above.
+			if (labelled.length > 1) {
+				return this._labelTakenResult(args.task.label);
+			}
+			task = labelled[0];
 			if (task) {
 				break;
 			}
@@ -163,6 +175,14 @@ export class CreateAndRunTaskTool implements IToolImpl {
 			content: [{ kind: 'text', value: uniqueDetails }],
 			toolResultMessage,
 			toolResultDetails
+		};
+	}
+
+	// Kete Workbench: see the label check in invoke.
+	private _labelTakenResult(label: string): IToolResult {
+		return {
+			content: [{ kind: 'text', value: `A task labelled "${label}" already exists, so no task was created or run. Use ${TerminalToolId.RunTask} to run an existing task.` }],
+			toolResultMessage: new MarkdownString(localize('keteTaskLabelTaken', "Task `{0}` already exists and was not run.", label)),
 		};
 	}
 

@@ -1,0 +1,135 @@
+name: Build Kete Workbench
+
+# Each platform package is built natively on its own OS: Electron native
+# modules (node-gyp) are not reliably cross-compiled.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to a pull request supersedes its previous run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint-and-compile-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Headers for native modules built from source; without libkrb5-dev,
+      # kerberos fails with "gssapi/gssapi.h: No such file or directory".
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-dev pkg-config
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          # @vscode/ripgrep's postinstall downloads from the GitHub API, which
+          # rate-limits anonymous requests with 403.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm run compile
+      - run: npm run eslint
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+            gulp_task: vscode-darwin-arm64-min
+          # macos-latest is arm64; Intel packages need an Intel runner.
+          # macos-15-intel is GitHub's last x86_64 image (until August 2027).
+          - os: macos-15-intel
+            platform: darwin
+            arch: x64
+            gulp_task: vscode-darwin-x64-min
+          - os: windows-latest
+            platform: win32
+            arch: x64
+            gulp_task: vscode-win32-x64-min
+
+    runs-on: ${{ matrix.os }}
+    env:
+      # Used by npm ci (ripgrep download) and packaging (Electron and
+      # platform package downloads), which are rate-limited when anonymous.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # build/npm/preinstall.ts needs the Visual Studio path; its own probe
+      # doesn't match the runner image, so find it with vswhere.
+      - name: Locate Visual Studio
+        if: matrix.platform == 'win32'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products * -property installationPath
+          if (-not $vs) { throw "vswhere found no Visual Studio installation" }
+          "vs2022_install=$vs" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # Packaging strips Authenticode signatures from native modules with
+      # signtool.exe, which the Windows SDK installs but doesn't put on PATH.
+      - name: Put signtool on PATH
+        if: matrix.platform == 'win32'
+        shell: pwsh
+        run: |
+          $kits = "${env:ProgramFiles(x86)}\Windows Kits\10\bin"
+          $signtool = Get-ChildItem -Path $kits -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Directory.Name -eq 'x64' -and $_.Directory.Parent.Name -match '^\d+(\.\d+)+$' } |
+            Sort-Object { [version]$_.Directory.Parent.Name } -Descending |
+            Select-Object -First 1
+          if (-not $signtool) { throw "signtool.exe (x64) not found under $kits" }
+          $signtool.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The -min task compiles and bundles its own output (out-build), so a
+      # separate `npm run compile` would only duplicate that work.
+      - name: Build platform package
+        run: npm run gulp ${{ matrix.gulp_task }}
+
+      # Packaging writes to ../VSCode-<platform>-<arch>, and upload-artifact
+      # rejects paths containing '..', so move the output into the workspace.
+      - name: Collect build output
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p artifacts
+          outputs=(../VSCode-*)
+          if [ ${#outputs[@]} -eq 0 ]; then
+            echo "No VSCode-* build output found beside the repository" >&2
+            exit 1
+          fi
+          mv "${outputs[@]}" artifacts/
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kete-workbench-${{ matrix.platform }}-${{ matrix.arch }}
+          path: artifacts/**
+          if-no-files-found: error
+          retention-days: 14

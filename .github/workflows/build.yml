@@ -56,9 +56,14 @@ jobs:
           --run src/vs/workbench/contrib/chat/test/common/languageModels.test.ts
 
       # The invokeTool call site lives in the browser layer, so its tests run in
-      # Electron, which needs a virtual display on Linux.
-      - name: Install virtual display
-        run: sudo apt-get install -y --no-install-recommends xvfb
+      # Electron, which needs a virtual display on Linux. Ubuntu 24.04 blocks
+      # unprivileged user namespaces through AppArmor, which Chromium's sandbox
+      # needs; without them Electron aborts at startup. Allowing them keeps the
+      # sandbox on, rather than running with --no-sandbox.
+      - name: Prepare Electron test environment
+        run: |
+          sudo apt-get install -y --no-install-recommends xvfb
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Tool call-site governance tests
         run: xvfb-run -a ./scripts/test.sh --run src/vs/workbench/contrib/chat/test/browser/tools/languageModelToolsService.test.ts

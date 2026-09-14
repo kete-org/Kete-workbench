@@ -6,9 +6,222 @@ information — add a superseding entry instead of editing an old one.
 
 ---
 
-## D-004 — The working name is "Kete Workbench"
+## D-015 — Docs describe what exists; runbooks track the process they describe
 
 **Status:** accepted
+**Date:** 2026-09-14
+
+`SETUP.md` went stale in two ways at once. It told readers to
+`git apply product.json.diff`, although that file is documentation, not a
+patch. And it presented forking `microsoft/vscode` into "your org" as a live
+step after the repository had already been established at
+`kete-org/Kete-workbench`, turning a one-time action into a permanent, wrong
+instruction. In the same pass, planning docs described code as existing that
+had not been written: a `kete-agent` extension, per-tool governance
+permissions and a `kete.mode` setting. Neither kind of error was caught until
+the docs were read against the repository.
+
+Rule: whenever a workflow, repository setting or implementation changes,
+check the docs that describe it. Anything not yet merged is described as
+planned, not as present.
+
+---
+
+## D-014 — `main` is protected: branch and pull request, no direct pushes
+
+**Status:** accepted
+**Date:** 2026-09-14
+
+A repository ruleset on `kete-org/Kete-workbench` blocks direct pushes, force
+pushes and deletion of `main`, and requires a pull request whose
+`build.yml` checks (lint/compile plus the macOS arm64, macOS x64 and Windows
+x64 packages) pass. This is the workflow, not an obstacle: it applies the
+"no autonomous production changes without human sign-off" rule to the
+repository itself, and every proposed change gets the full CI matrix.
+
+Required approvals are currently 0 because there is a single maintainer, who
+cannot approve their own pull requests. Raise it once a second maintainer
+joins.
+
+---
+
+## D-013 — The tiered roadmap is a backlog, not a v1 scope
+
+**Status:** accepted
+**Date:** 2026-09-14
+
+The tiers in `ARCHITECTURE.md` deliberately collect the full feature set seen
+while reviewing Claude Code, Cursor, Codex, Gemini CLI/Antigravity, Windsurf,
+Kilo Code and Qoder. It is a multi-year backlog, not a build instruction:
+Tier 0 plus Tier 1 alone was sized at roughly 2–4 engineers over several
+months. The actual v1 scope has to be chosen explicitly from it, not inferred
+from an item's presence.
+
+---
+
+## D-012 — Integrate with Harness.io rather than rebuild what it covers
+
+**Status:** accepted
+**Date:** 2026-09-14
+
+Several planned features — CI/CD status, SBOM generation, IaC cost
+estimation, security-scan orchestration — overlap with Harness modules
+(Pipeline Execution API, Software Supply Chain Assurance, Cloud Cost
+Management, Security Testing Orchestration). Integrate with those instead of
+building equivalents; SSCA in particular is far more complete than a
+from-scratch SBOM feature would be for a long time.
+
+The integration is modular, one Harness module at a time, matching how
+Harness prices, because not every customer has every module. Harness's
+hook-based "Secure AI Coding" integration already targets Cursor, Windsurf
+and Claude Code, so Kete Workbench's hook events should support being a
+target for it directly.
+
+---
+
+## D-011 — Trae is not a default target for the extension
+
+**Status:** accepted
+**Date:** 2026-09-14
+
+Trae (ByteDance) is a VS Code fork and would probably accept the same
+lightweight extension as Cursor and Windsurf. It is not a default target:
+independent security research (Unit 221B, with follow-up reporting by The
+Register in July 2026) reported Trae sending file contents, user IDs and
+device identifiers to ByteDance servers, continuing after telemetry was
+disabled in settings. That conflicts directly with this product's
+governance-first, telemetry-off positioning.
+
+Support Trae only with either independent verification that the reported
+behaviour is fixed in the targeted version, or an explicit warning to
+customers before they install into it. Link the primary sources here before
+this reasoning is used in anything customer-facing.
+
+---
+
+## D-010 — One agent core; every surface is a thin client
+
+**Status:** accepted
+**Date:** 2026-09-14
+
+`MULTI_PLATFORM_PLAN.md` adds a lightweight VS Code extension, a JetBrains
+plugin, a CLI agent, a mobile app and a cloud runtime beyond the forked IDE,
+following Kilo Code's "sessions that follow you from IDE to terminal to
+phone" and its move to one core shared across VS Code, its CLI and cloud
+agents. The binding rule, also a hard rule in `CLAUDE.md`: agent logic
+(orchestrator loop, governance gate, subagents) lives in one shared core, and
+each client only renders UI and translates its surface's actions into the
+core's interface.
+
+How this fits D-003:
+
+- In the fork, the core's governance gate is the platform service in
+  `src/vs/platform/governance/`, reached from `invokeTool` and
+  `sendChatRequest`. Agent features and UI are planned as a bundled
+  extension (`kete-agent`, not yet written) that calls into that service. It
+  must never carry a gate of its own.
+- Surfaces outside the fork (stock VS Code, Cursor, Windsurf, JetBrains, the
+  CLI) don't have that platform service. For them, a non-bypassable gate
+  requires the core to run as a service the client calls; gating implemented
+  inside those clients is advisory, for the reason D-003 rejected an
+  extension-hosted gate.
+
+---
+
+## D-009 — Enterprise tier: match Kilo Code's and Qoder's features, not their pricing
+
+**Status:** accepted
+**Date:** 2026-09-14
+
+`ENTERPRISE_OFFERING.md` builds the Enterprise tier from what Kilo Code and
+Qoder ship at that tier: SSO/SCIM, model policy controls, audit logs, plugin
+distribution, shared spend pools and priority support. That feature shape is
+proven and worth matching. Their pricing is not: both charge a flat USD
+per-seat add-on (Qoder listed $20/seat/month when reviewed) with no regional
+adjustment, which would abandon the purchasing-power pricing central to this
+product. Enterprise pricing follows the same local-currency,
+purchasing-power-adjusted approach as the other tiers.
+
+---
+
+## D-008 — One "Plan" mode; no separate "Architect" mode
+
+**Status:** accepted
+**Date:** 2026-09-14
+
+The project's docs listed either four modes (Plan/Code/Debug/Ask) or five
+(adding Architect), and the roadmap wrote "Architect/Plan" as one entry. That
+reproduced the confusion in Kilo Code's own documentation ("Architect (called
+Plan in some docs)") before it settled on one name. Resolved the same way:
+one mode, called Plan. The planned mode setting is `kete.mode` with values
+`plan`, `code`, `debug` and `ask`; modes are not implemented yet.
+
+This also keeps "agent orchestrator" (the always-on plan → act → observe
+engine) distinct from an "Orchestrator mode" (see D-007), which this project
+does not build.
+
+---
+
+## D-007 — No dedicated "Orchestrator" mode
+
+**Status:** accepted
+**Date:** 2026-09-14
+
+Kilo Code shipped and later deprecated a dedicated Orchestrator mode because
+of its cost overhead; by its own figures, a task costing $0.50 directly could
+cost $1.50 or more through the orchestrator. Adopt its fix: Plan, Code, Debug
+and Ask delegate to subagents automatically, and only when that helps,
+instead of routing every task through a mandatory orchestration layer. The
+governance gate remains the single chokepoint, which is a compliance
+requirement; subagent delegation is a lightweight per-task decision, not a
+mode.
+
+---
+
+## D-006 — Governance permissions move to per-tool rules
+
+**Status:** accepted (design direction — not yet implemented)
+**Date:** 2026-09-14
+
+**Current implementation** (Phase 1, per D-003): the gate in
+`src/vs/platform/governance/` classifies each action into a risk tier —
+`read`, `localWrite`, `localInfra`, `remoteInfra`, `production` — and requires
+human approval at or above a policy-backed threshold
+(`kete.governance.approvalThreshold`). It fails closed, and an action whose
+audit entry cannot be written is denied.
+
+**Planned:** per-tool permissions (`read`, `edit`, `bash`, `kubectlApply`, …),
+each independently `allow`, `ask` or `deny`, matching Kilo Code's redesign
+after it found category-level control too coarse for real teams. Unknown
+tools default to `ask`, never a silent approval.
+
+What the rework must keep:
+
+- A shared or remote target always requires approval, whatever a tool's
+  permission says; this stays non-configurable.
+- Fail-closed behaviour, and policy values overriding user and workspace
+  settings.
+
+---
+
+## D-005 — Remote development over SSH, without Tailscale
+
+**Status:** accepted
+**Date:** 2026-09-14
+
+Tailscale is deliberately excluded. Plain SSH remote development covers the
+need without adding a mesh-networking dependency to the product.
+
+Because the extension gallery is Open VSX (D-002), Microsoft's Remote-SSH
+extension is not available. SSH remote development therefore needs an
+open-source implementation such as `open-remote-ssh`, or our own; it is not
+inherited ready-made.
+
+---
+
+## D-004 — The product name is "Kete Workbench"
+
+**Status:** accepted — confirmed as the final name on 2026-09-14
 **Date:** 2026-09-14
 **Supersedes:** D-000
 
@@ -16,14 +229,32 @@ information — add a superseding entry instead of editing an old one.
 
 D-000 required settling the name before Phase 0.2 produced artifacts. That
 point has arrived: CI now packages macOS arm64, macOS x64 and Windows x64
-builds. The name went from "Kente Studio" to "Kente Workbench", and a
-"Milawei Workbench" rename was drafted on a branch but not adopted. The
-GitHub organisation and repository are `kete-org/Kete-workbench`.
+builds. The GitHub organisation and repository are `kete-org/Kete-workbench`.
+
+Naming history:
+
+1. **"Kente Studio"** — chosen for the weaving metaphor: multi-file
+   composition, with patterns and skills as woven-in components. Dropped
+   after it turned out to collide with an existing product name.
+2. **"Baobab"** and the Ewe words *Adanudo* (woven cloth) and *Dzotsotsoe*
+   (perseverance) were considered. Instead, the weaving concept was kept and
+   "Studio" became **"Kente Workbench"**, which reduced the collision but did
+   not remove it.
+3. **"Milawei"**, then **"Milawei Workbench"**, were drafted to drop "Kente"
+   entirely, but not adopted.
+4. **"Kete Workbench"** — final. *Kete* is the Ewe name for the weaving
+   tradition Akan speakers call Kente (from *ke*, "open", and *te*, "close",
+   the motion of weaving). It keeps the metaphor, is rooted in Ewe heritage,
+   and its spelling separates it from the earlier collision.
+
+A formal trademark search (Ghana Registrar-General and target markets) is
+still due before domain registration, trademark filing or public launch. That
+is risk mitigation; the name itself is decided.
 
 ### Decision
 
-The product's working name is **Kete Workbench**, and every identifier that
-is written to a user's machine now derives from it:
+The product's name is **Kete Workbench**, and every identifier that is
+written to a user's machine derives from it:
 
 | Key | Value |
 |---|---|
@@ -48,6 +279,8 @@ repository instead of `microsoft/vscode`.
 
 - Once installable builds are distributed, renaming again requires a
   profile-migration path, not a find-and-replace (the reason D-000 existed).
+- `apply-product-json.ts` holds these exact values and re-applies them if an
+  upstream sync overwrites `product.json`.
 - Governance setting IDs use the `kete.` prefix (`kete.governance.enabled`,
   `kete.governance.approvalThreshold`).
 - Files authored for this fork carry a "Kete Workbench contributors"

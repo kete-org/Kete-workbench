@@ -10,8 +10,8 @@ Kete Workbench is a fork of [`microsoft/vscode`](https://github.com/microsoft/vs
 ("Code - OSS"). It is an independent project and is not affiliated with or
 endorsed by Microsoft.
 
-> **"Kete Workbench" is the working name.** See
-> [D-004 in DECISIONS.md](DECISIONS.md#d-004--the-working-name-is-kete-workbench).
+> **"Kete Workbench" is the final product name.** See
+> [D-004 in DECISIONS.md](DECISIONS.md#d-004--the-product-name-is-kete-workbench).
 
 ## Status
 
@@ -54,6 +54,12 @@ IDE shell → agent orchestrator → governance gate → capability layer → in
 - [ARCHITECTURE.md](ARCHITECTURE.md) — system design and the tiered feature roadmap
 - [DECISIONS.md](DECISIONS.md) — decisions and their rationale, including why the
   gate lives in `src/vs/platform/` rather than in an extension (D-003)
+- [Kete_Workbench_Master_Roadmap.md](Kete_Workbench_Master_Roadmap.md) — the
+  product roadmap in one document
+- [MULTI_PLATFORM_PLAN.md](MULTI_PLATFORM_PLAN.md) — VS Code extension, JetBrains,
+  CLI, mobile and cloud surfaces over one shared agent core
+- [ENTERPRISE_OFFERING.md](ENTERPRISE_OFFERING.md) — the Enterprise-tier feature spec
+- [SETUP.md](SETUP.md) — contributor setup runbook
 
 ## Building from source
 
@@ -117,9 +123,14 @@ open public issues for them — contact the
 The `upstream` remote tracks `microsoft/vscode`. After merging upstream
 changes:
 
-1. Check `product.json` has not regained Microsoft endpoints or the Microsoft
-   marketplace (`build/hygiene.ts` rejects the marketplace).
-2. Confirm the two governance call sites —
+1. Run `node apply-product-json.ts product.json` to restore the product
+   identity and remove Microsoft endpoints if the merge overwrote them. It
+   changes nothing when the branding is intact.
+2. Check `product.json` has not regained other Microsoft endpoints or the
+   Microsoft marketplace (`build/hygiene.ts` rejects the marketplace).
+3. Keep upstream's workflows, CodeQL and Dependabot config out;
+   `.github/workflows/build.yml` is the only workflow.
+4. Confirm the two governance call sites —
    `ILanguageModelToolsService.invokeTool` and
    `ILanguageModelsService.sendChatRequest` — still exist and are still gated.
 

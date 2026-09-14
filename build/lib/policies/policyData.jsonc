@@ -957,6 +957,65 @@
             "included": true
         },
         {
+            "key": "kete.governance.approvalThreshold",
+            "name": "KeteGovernanceApprovalThreshold",
+            "category": "InteractiveSession",
+            "minimumVersion": "1.139",
+            "localization": {
+                "description": {
+                    "key": "kete.governance.approvalThreshold.policy",
+                    "value": "The lowest risk tier at which a Kete Workbench agent action needs human approval before it runs. Setting this policy also prevents users from turning approval gating off."
+                },
+                "enumDescriptions": [
+                    {
+                        "key": "kete.governance.tier.read",
+                        "value": "Reading files and describing state."
+                    },
+                    {
+                        "key": "kete.governance.tier.localWrite",
+                        "value": "Changes confined to your own working tree."
+                    },
+                    {
+                        "key": "kete.governance.tier.localInfra",
+                        "value": "Containers and services on your own machine."
+                    },
+                    {
+                        "key": "kete.governance.tier.remoteInfra",
+                        "value": "Anything addressing a remote or shared cluster."
+                    },
+                    {
+                        "key": "kete.governance.tier.production",
+                        "value": "Deploys, pushes to protected branches, and production changes."
+                    }
+                ]
+            },
+            "type": "string",
+            "default": "remoteInfra",
+            "enum": [
+                "read",
+                "localWrite",
+                "localInfra",
+                "remoteInfra",
+                "production"
+            ],
+            "included": true
+        },
+        {
+            "key": "kete.governance.enabled",
+            "name": "KeteGovernanceEnabled",
+            "category": "InteractiveSession",
+            "minimumVersion": "1.139",
+            "localization": {
+                "description": {
+                    "key": "kete.governance.enabled.policy",
+                    "value": "Requires Kete Workbench agent actions at or above the approval threshold to be approved by a human, and prevents users from turning this off. Approval gating cannot be disabled through policy: a policy value of false is treated as true."
+                }
+            },
+            "type": "boolean",
+            "default": true,
+            "included": true
+        },
+        {
             "key": "mcp.enterpriseManagedAuth.idp",
             "name": "McpEnterpriseManagedAuthIdp",
             "category": "InteractiveSession",

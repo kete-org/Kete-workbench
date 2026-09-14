@@ -167,6 +167,10 @@ export interface IGovernanceGate {
 export const GovernanceConfigKeys = {
 	/** Lowest tier that requires human approval. */
 	ApprovalThreshold: 'kete.governance.approvalThreshold',
-	/** When false, the audit log is still written but nothing is gated. Dev only. */
+	/**
+	 * When false, the audit log is still written but nothing is gated. Dev only:
+	 * a policy can pin it on but not off, and a user's `false` is ignored while
+	 * either setting is pinned by policy.
+	 */
 	Enabled: 'kete.governance.enabled',
 } as const;

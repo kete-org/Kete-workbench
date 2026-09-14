@@ -7,15 +7,15 @@ import { isDefined } from '../../../../base/common/types.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { GovernanceConfigKeys, IApprovalRequest, IGovernanceApprover, IGovernanceGate, RISK_TIER_ORDER } from '../../../../platform/governance/common/governance.js';
+import { IApprovalRequest, IGovernanceApprover, IGovernanceGate } from '../../../../platform/governance/common/governance.js';
 import { IAuditEntry, IAuditSink } from '../../../../platform/governance/common/governanceAuditLog.js';
-import { DEFAULT_APPROVAL_THRESHOLD, GovernanceGate } from '../../../../platform/governance/common/governanceGate.js';
+import { GovernanceGate } from '../../../../platform/governance/common/governanceGate.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogger, ILoggerService, ILogService } from '../../../../platform/log/common/log.js';
-import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
+// The governance settings and their policies.
+import '../common/governanceConfiguration.js';
 
 /**
  * Writes each audit entry as one JSON line to the "Kete Governance Audit" log,
@@ -97,35 +97,3 @@ registerSingleton(IGovernanceGate, WorkbenchGovernanceGate, InstantiationType.De
 // Registered before chat can restore a session and invoke tools. Until an
 // approver is registered, the gate denies every action that needs one.
 registerWorkbenchContribution2(GovernanceApprovalContribution.ID, GovernanceApprovalContribution, WorkbenchPhase.BlockRestore);
-
-// Both settings are application-scoped, so values in a workspace or folder's
-// settings are ignored: a repository cannot lower the bar for its own code.
-Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
-	id: 'keteGovernance',
-	title: localize('governanceConfigurationTitle', "Kete Governance"),
-	type: 'object',
-	properties: {
-		[GovernanceConfigKeys.ApprovalThreshold]: {
-			type: 'string',
-			enum: [...RISK_TIER_ORDER],
-			// In the same order as RISK_TIER_ORDER.
-			enumDescriptions: [
-				localize('governanceTierRead', "Reading files and describing state."),
-				localize('governanceTierLocalWrite', "Changes confined to your own working tree."),
-				localize('governanceTierLocalInfra', "Containers and services on your own machine."),
-				localize('governanceTierRemoteInfra', "Anything addressing a remote or shared cluster."),
-				localize('governanceTierProduction', "Deploys, pushes to protected branches, and production changes."),
-			],
-			default: DEFAULT_APPROVAL_THRESHOLD,
-			scope: ConfigurationScope.APPLICATION,
-			markdownDescription: localize('governanceApprovalThreshold', "The lowest risk tier at which an agent action needs your approval before it runs. Every action, allowed or denied, is recorded in the Kete Governance Audit log. Only user settings can change this; workspace settings are ignored."),
-		},
-		[GovernanceConfigKeys.Enabled]: {
-			type: 'boolean',
-			default: true,
-			scope: ConfigurationScope.APPLICATION,
-			tags: ['advanced'],
-			markdownDescription: localize('governanceEnabled', "For development only. When disabled, agent actions are still recorded in the Kete Governance Audit log but never require approval. Workspace settings are ignored."),
-		},
-	},
-});

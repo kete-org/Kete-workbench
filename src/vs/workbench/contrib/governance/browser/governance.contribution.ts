@@ -5,14 +5,18 @@
 
 import { isDefined } from '../../../../base/common/types.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { joinPath } from '../../../../base/common/resources.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
 import { IApprovalRequest, IGovernanceApprover, IGovernanceGate } from '../../../../platform/governance/common/governance.js';
 import { IAuditEntry, IAuditSink } from '../../../../platform/governance/common/governanceAuditLog.js';
+import { AuthoritativeAuditSink, FileAuditStore, GOVERNANCE_AUDIT_FOLDER_NAME } from '../../../../platform/governance/common/governanceAuditStore.js';
 import { GovernanceGate } from '../../../../platform/governance/common/governanceGate.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogger, ILoggerService, ILogService } from '../../../../platform/log/common/log.js';
+import { IUserDataProfilesService } from '../../../../platform/userDataProfile/common/userDataProfile.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 // The governance settings and their policies.
 import '../common/governanceConfiguration.js';
@@ -20,6 +24,9 @@ import '../common/governanceConfiguration.js';
 /**
  * Writes each audit entry as one JSON line to the "Kete Governance Audit" log,
  * which is kept in the session's logs folder and shown in the Output panel.
+ *
+ * A convenience view only: logs rotate away, and a logger write cannot report
+ * failure. The durable record is the {@link FileAuditStore}.
  */
 class LoggerAuditSink implements IAuditSink {
 
@@ -37,13 +44,18 @@ export class WorkbenchGovernanceGate extends GovernanceGate {
 		@IConfigurationService configurationService: IConfigurationService,
 		@ILogService logService: ILogService,
 		@ILoggerService loggerService: ILoggerService,
+		@IFileService fileService: IFileService,
+		@IUserDataProfilesService userDataProfilesService: IUserDataProfilesService,
 	) {
 		// Audit entries must be written whatever the user's log level is.
 		const logger = loggerService.createLogger('keteGovernanceAudit', {
 			name: localize('governanceAuditLog', "Kete Governance Audit"),
 			logLevel: 'always',
 		});
-		super(new LoggerAuditSink(logger), configurationService, logService);
+		// The durable store decides whether a decision was recorded; if it cannot
+		// write, the gate denies. See GOVERNANCE_AUDIT_FOLDER_NAME for the location.
+		const store = new FileAuditStore(joinPath(userDataProfilesService.defaultProfile.globalStorageHome, GOVERNANCE_AUDIT_FOLDER_NAME), fileService);
+		super(new AuthoritativeAuditSink(store, [new LoggerAuditSink(logger)]), configurationService, logService);
 		this._register(logger);
 	}
 }

@@ -1,8 +1,7 @@
 name: Build Kente Workbench
 
-# Native build matrix — each OS builds on itself.
-# Cross-compiling Electron native modules (node-gyp) is unreliable,
-# so we never build the Windows package from a Linux/macOS runner or vice versa.
+# Each platform package is built natively on its own OS: Electron native
+# modules (node-gyp) are not reliably cross-compiled.
 
 on:
   push:
@@ -10,14 +9,42 @@ on:
   pull_request:
   workflow_dispatch:
 
-# @vscode/ripgrep's postinstall fetches a prebuilt binary from the GitHub API.
-# Unauthenticated, that request is rate-limited and returns 403 on shared
-# runners, which fails npm ci before it ever reaches compile. The downloader
-# honours GITHUB_TOKEN, so give it one.
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+permissions:
+  contents: read
+
+# A new push to a pull request supersedes its previous run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  lint-and-compile-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Headers for native modules built from source; without libkrb5-dev,
+      # kerberos fails with "gssapi/gssapi.h: No such file or directory".
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-dev pkg-config
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          # @vscode/ripgrep's postinstall downloads from the GitHub API, which
+          # rate-limits anonymous requests with 403.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm run compile
+      - run: npm run eslint
+
   build:
     strategy:
       fail-fast: false
@@ -27,12 +54,8 @@ jobs:
             platform: darwin
             arch: arm64
             gulp_task: vscode-darwin-arm64-min
-          # macos-latest is arm64. Building the x64 package there is a
-          # cross-architecture build, which is what the note above warns
-          # against — it installs only the arm64 platform packages. Intel
-          # macOS needs an Intel runner. macos-13 was retired in December 2025
-          # (jobs targeting it queue forever); macos-15-intel is GitHub's last
-          # x86_64 macOS image, supported until August 2027.
+          # macos-latest is arm64; Intel packages need an Intel runner.
+          # macos-15-intel is GitHub's last x86_64 image (until August 2027).
           - os: macos-15-intel
             platform: darwin
             arch: x64
@@ -43,39 +66,31 @@ jobs:
             gulp_task: vscode-win32-x64-min
 
     runs-on: ${{ matrix.os }}
+    env:
+      # Used by npm ci (ripgrep download) and packaging (Electron and
+      # platform package downloads), which are rate-limited when anonymous.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Read Node version from .nvmrc
-        id: nvmrc
-        shell: bash
-        run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ steps.nvmrc.outputs.version }}
+          node-version-file: .nvmrc
           cache: npm
 
-      # build/npm/preinstall.ts probes %ProgramFiles% for a Visual Studio
-      # install and aborts if it finds none. Rather than depend on that probe
-      # matching the runner image's layout, locate the install with vswhere
-      # and hand preinstall the explicit path it documents.
+      # build/npm/preinstall.ts needs the Visual Studio path; its own probe
+      # doesn't match the runner image, so find it with vswhere.
       - name: Locate Visual Studio
         if: matrix.platform == 'win32'
         shell: pwsh
         run: |
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          if (-not (Test-Path $vswhere)) { throw "vswhere.exe not found at $vswhere" }
           $vs = & $vswhere -latest -products * -property installationPath
           if (-not $vs) { throw "vswhere found no Visual Studio installation" }
-          Write-Host "Using Visual Studio at $vs"
           "vs2022_install=$vs" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      # The win32 packaging task strips existing Authenticode signatures from
-      # native modules with signtool.exe before stamping their version info.
-      # The Windows SDK is installed on the runner, but its bin directory is
-      # not on PATH, so the spawn fails with ENOENT.
+      # Packaging strips Authenticode signatures from native modules with
+      # signtool.exe, which the Windows SDK installs but doesn't put on PATH.
       - name: Put signtool on PATH
         if: matrix.platform == 'win32'
         shell: pwsh
@@ -86,71 +101,35 @@ jobs:
             Sort-Object { [version]$_.Directory.Parent.Name } -Descending |
             Select-Object -First 1
           if (-not $signtool) { throw "signtool.exe (x64) not found under $kits" }
-          Write-Host "Using $($signtool.FullName)"
           $signtool.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Compile
-        run: npm run compile
-
+      # The -min task compiles and bundles its own output (out-build), so a
+      # separate `npm run compile` would only duplicate that work.
       - name: Build platform package
         run: npm run gulp ${{ matrix.gulp_task }}
 
-      # The gulp packaging tasks write to the *parent* of the repository
-      # (../VSCode-<platform>-<arch>). upload-artifact refuses any path
-      # containing '..', so move the output inside the workspace first.
+      # Packaging writes to ../VSCode-<platform>-<arch>, and upload-artifact
+      # rejects paths containing '..', so move the output into the workspace.
       - name: Collect build output
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p artifacts
           shopt -s nullglob
-          found=0
-          for dir in ../VSCode-*; do
-            mv "$dir" artifacts/
-            found=1
-          done
-          if [ "$found" -eq 0 ]; then
+          mkdir -p artifacts
+          outputs=(../VSCode-*)
+          if [ ${#outputs[@]} -eq 0 ]; then
             echo "No VSCode-* build output found beside the repository" >&2
             exit 1
           fi
-          ls -la artifacts
+          mv "${outputs[@]}" artifacts/
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: kente-workbench-${{ matrix.platform }}-${{ matrix.arch }}
           path: artifacts/**
-          # An artifact that silently fails to upload is worse than a red build.
           if-no-files-found: error
           retention-days: 14
-
-  # Fast local-iteration check — runs on every push, doesn't produce a package.
-  # Mirrors what you'd run by hand on gaf-dev-svr3.
-  lint-and-compile-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      # Native modules built from source on Linux need these headers.
-      # Without libkrb5-dev, `kerberos` fails with:
-      #   fatal error: gssapi/gssapi.h: No such file or directory
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libkrb5-dev \
-            libx11-dev \
-            libxkbfile-dev \
-            libsecret-1-dev \
-            pkg-config
-
-      - run: npm ci
-      - run: npm run compile
-      - run: npm run eslint

@@ -137,6 +137,50 @@ suite('Governance gate', () => {
 		);
 	});
 
+	test('assess reports whether approval is needed without asking anyone or recording anything', () => {
+		const approver = new StubApprover(true);
+		const { gate, sink } = createGate(approver);
+		const { gate: disabledGate } = createGate(undefined, { [GovernanceConfigKeys.Enabled]: false });
+
+		assert.deepStrictEqual(
+			{
+				local: gate.assess(action({ commandLine: 'docker compose up -d' })),
+				remote: gate.assess(action({ commandLine: 'kubectl --context prod apply -f x.yaml' })),
+				disabled: disabledGate.assess(action({ commandLine: 'terraform apply' })),
+				prompts: approver.seen.length,
+				recorded: (sink as InMemoryAuditSink).entries.length,
+			},
+			{
+				local: { tier: GovernanceRiskTier.LocalInfra, approvalRequired: false },
+				remote: { tier: GovernanceRiskTier.RemoteInfra, approvalRequired: true },
+				disabled: { tier: GovernanceRiskTier.Production, approvalRequired: false },
+				prompts: 0,
+				recorded: 0,
+			}
+		);
+	});
+
+	test('an approver passed for one call answers instead of the registered one, and is named in the audit entry', async () => {
+		const registered = new StubApprover(false);
+		const approvedInChat: IGovernanceApprover = { source: 'chat confirmation', requestApproval: async () => true };
+		const { gate, sink } = createGate(registered);
+
+		const decision = await gate.authorize(action({ commandLine: 'kubectl --context prod apply -f x.yaml' }), CancellationToken.None, approvedInChat);
+
+		assert.deepStrictEqual(
+			{
+				outcome: decision.outcome,
+				registeredPrompts: registered.seen.length,
+				recorded: (sink as InMemoryAuditSink).entries.map(e => ({ outcome: e.outcome, asked: e.approvalRequested, reason: e.reason })),
+			},
+			{
+				outcome: GovernanceOutcome.Allowed,
+				registeredPrompts: 0,
+				recorded: [{ outcome: GovernanceOutcome.Allowed, asked: true, reason: 'approved by a human in the chat confirmation' }],
+			}
+		);
+	});
+
 	test('denies when no approver is registered', async () => {
 		const { gate } = createGate(undefined);
 

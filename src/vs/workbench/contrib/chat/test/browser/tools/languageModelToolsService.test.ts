@@ -22,7 +22,10 @@ import { IConfirmation, IConfirmationResult, IDialogService } from '../../../../
 import { TestDialogService } from '../../../../../../platform/dialogs/test/common/testDialogService.js';
 import { ExtensionIdentifier } from '../../../../../../platform/extensions/common/extensions.js';
 import { GovernanceOutcome, GovernedActionKind, IGovernanceGate } from '../../../../../../platform/governance/common/governance.js';
+import { InMemoryAuditSink } from '../../../../../../platform/governance/common/governanceAuditLog.js';
+import { GovernanceGate } from '../../../../../../platform/governance/common/governanceGate.js';
 import { TestGovernanceGate } from '../../../../../../platform/governance/test/common/testGovernanceGate.js';
+import { NullLogService } from '../../../../../../platform/log/common/log.js';
 import { ConfirmationOptionKind } from '../../../../../../platform/agentHost/common/state/protocol/state.js';
 import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
 import { workbenchInstantiationService } from '../../../../../test/browser/workbenchTestServices.js';
@@ -197,6 +200,8 @@ interface TestToolsServiceOptions {
 	configurationService?: TestConfigurationService;
 	/** Called after configurationService is created but before the service is instantiated */
 	configureServices?: (config: TestConfigurationService) => void;
+	/** Used instead of the always-allowing test gate, to exercise real approval flows. */
+	governanceGate?: IGovernanceGate;
 }
 
 /**
@@ -220,7 +225,7 @@ function createTestToolsService(store: ReturnType<typeof ensureNoDisposablesAreL
 	instaService.stub(ILanguageModelToolsConfirmationService, new MockLanguageModelToolsConfirmationService());
 	instaService.stub(IToolResultCompressor, noopToolResultCompressor);
 	const governanceGate = new TestGovernanceGate();
-	instaService.stub(IGovernanceGate, governanceGate);
+	instaService.stub(IGovernanceGate, options?.governanceGate ?? governanceGate);
 	const riskAssessmentService = new TestChatToolRiskAssessmentService();
 	instaService.stub(IChatToolRiskAssessmentService, riskAssessmentService);
 
@@ -565,6 +570,62 @@ suite('LanguageModelToolsService', () => {
 		assert.deepStrictEqual(
 			{ invoked, deniedMessage: String(result.content[0].value).includes('did not allow this action') },
 			{ invoked: 0, deniedMessage: true }
+		);
+	});
+
+	/**
+	 * A session at the Auto-Approve level, a terminal tool with no confirmation of
+	 * its own, and a real governance gate with no approver registered: if the gate
+	 * had to ask separately, it would deny for want of an approver.
+	 */
+	function setupGovernedTerminalTool() {
+		const sink = new InMemoryAuditSink();
+		const gate = store.add(new GovernanceGate(sink, new TestConfigurationService(), new NullLogService()));
+		const setup = createTestToolsService(store, { governanceGate: gate });
+		const calls = { invoked: 0 };
+		const tool = registerToolForTest(setup.service, store, TerminalToolId.RunInTerminal, {
+			invoke: async () => {
+				calls.invoked++;
+				return { content: [{ kind: 'text', value: 'ran' }] };
+			},
+		});
+		const capture: { invocation?: any } = {};
+		stubGetSession(setup.chatService, 'governed', { requestId: 'req1', capture, modeInfo: { permissionLevel: ChatPermissionLevel.AutoApprove } });
+		const invoke = (command: string) => setup.service.invokeTool(tool.makeDto({ command }, { sessionId: 'governed' }), async () => 0, CancellationToken.None);
+		return { sink, calls, capture, invoke };
+	}
+
+	test('a governed tool call asks once in chat, even under auto-approve, and that confirmation is the approval', async () => {
+		const { sink, calls, capture, invoke } = setupGovernedTerminalTool();
+
+		const promise = invoke('kubectl --context prod apply -f .');
+		const published = await waitForPublishedInvocation(capture);
+		const state = published.state.get();
+		const prompt = state.type === IChatToolInvocation.StateKind.WaitingForConfirmation
+			? { waiting: true, allowAutoConfirm: state.confirmationMessages?.allowAutoConfirm }
+			: { waiting: false, allowAutoConfirm: undefined };
+		IChatToolInvocation.confirmWith(published, { type: ToolConfirmKind.UserAction });
+		const result = await promise;
+
+		assert.deepStrictEqual(
+			{ prompt, result: result.content[0].value, invoked: calls.invoked, audit: sink.entries.map(e => ({ outcome: e.outcome, asked: e.approvalRequested, reason: e.reason })) },
+			{
+				prompt: { waiting: true, allowAutoConfirm: false },
+				result: 'ran',
+				invoked: 1,
+				audit: [{ outcome: GovernanceOutcome.Allowed, asked: true, reason: 'approved by a human in the tool confirmation' }],
+			}
+		);
+	});
+
+	test('a tool call below the approval threshold keeps its auto-approval', async () => {
+		const { sink, calls, invoke } = setupGovernedTerminalTool();
+
+		const result = await invoke('docker ps');
+
+		assert.deepStrictEqual(
+			{ result: result.content[0].value, invoked: calls.invoked, audit: sink.entries.map(e => ({ outcome: e.outcome, asked: e.approvalRequested })) },
+			{ result: 'ran', invoked: 1, audit: [{ outcome: GovernanceOutcome.Allowed, asked: false }] }
 		);
 	});
 

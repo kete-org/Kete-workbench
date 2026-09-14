@@ -56,8 +56,11 @@ Teams, WhatsApp).
 What exists today: the gate service, risk classifier and audit log in
 `src/vs/platform/governance/`, called from the two call sites D-003 names —
 `invokeTool` (gates every tool call, last check before it runs) and
-`sendChatRequest` (records every model request). Registration, the approval
-dialog and the audit log sink live in `src/vs/workbench/contrib/governance/`.
+`sendChatRequest` (records every model request). A tool call that needs
+approval gets it through its own confirmation, which governance makes
+un-skippable (`governedToolConfirmation.ts`), so the person is asked once.
+Registration, the fallback dialog and the audit log sink live in
+`src/vs/workbench/contrib/governance/`.
 The inherited chat and tool-calling loop is upstream's; no Kete agent loop,
 modes, skills or subagents exist yet.
 

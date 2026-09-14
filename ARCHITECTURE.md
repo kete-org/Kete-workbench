@@ -31,8 +31,11 @@ called from the two chokepoints every tool call and model request already
 passes through — `ILanguageModelToolsService.invokeTool` and
 `ILanguageModelsService.sendChatRequest`. Both call sites are wired: a tool
 call is authorized as the last step before it runs, and a model request is
-recorded before it reaches the provider. The workbench registers the gate,
-an approval dialog and an audit log sink in `src/vs/workbench/contrib/governance/`.
+recorded before it reaches the provider. When a tool call needs approval, its
+own confirmation (in chat, or the dialog when there is no chat session) is
+that approval: it can't be auto-approved, and the person is asked once. The
+workbench registers the gate, a fallback approval dialog and an audit log sink
+in `src/vs/workbench/contrib/governance/`.
 Agent features and UI ride on top, planned as a bundled extension that calls
 into the gate and never carries a gate of its own.
 

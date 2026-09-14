@@ -1,76 +1,133 @@
-# Visual Studio Code - Open Source ("Code - OSS")
-[![Feature Requests](https://img.shields.io/github/issues/microsoft/vscode/feature-request.svg)](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
-[![Bugs](https://img.shields.io/github/issues/microsoft/vscode/bug.svg)](https://github.com/microsoft/vscode/issues?utf8=✓&q=is%3Aissue+is%3Aopen+label%3Abug)
+# Kente Workbench
 
-## The Repository
+[![Build](https://github.com/kete-org/Kete-workbench/actions/workflows/build.yml/badge.svg)](https://github.com/kete-org/Kete-workbench/actions/workflows/build.yml)
 
-This repository ("`Code - OSS`") is where we (Microsoft) develop the [Visual Studio Code](https://code.visualstudio.com) product together with the community. Not only do we work on code and issues here, but we also publish our [roadmap](https://github.com/microsoft/vscode/wiki/Roadmap), [monthly iteration plans](https://github.com/microsoft/vscode/wiki/Iteration-Plans), and our [endgame plans](https://github.com/microsoft/vscode/wiki/Running-the-Endgame). This source code is available to everyone under the standard [MIT license](https://github.com/microsoft/vscode/blob/main/LICENSE.txt).
+A code editor with an embedded, governance-aware coding agent, built for
+African developer economics: cost-tiered model routing, offline-first
+operation, and support for low-spec hardware.
 
-## Visual Studio Code
+Kente Workbench is a fork of [`microsoft/vscode`](https://github.com/microsoft/vscode)
+("Code - OSS"). It is an independent project and is not affiliated with or
+endorsed by Microsoft.
 
-<p align="center">
-  <img alt="VS Code in action" src="https://github.com/user-attachments/assets/56af271c-949d-454c-a3ea-16188c063414">
-</p>
+> **"Kente Workbench" is a working name** and may change before the first
+> release. See [D-000 in DECISIONS.md](DECISIONS.md#d-000--the-name-kente-workbench-is-provisional).
 
-[Visual Studio Code](https://code.visualstudio.com) is a distribution of the `Code - OSS` repository with Microsoft-specific customizations released under a traditional [Microsoft product license](https://code.visualstudio.com/License/).
+## Status
 
-[Visual Studio Code](https://code.visualstudio.com) combines the simplicity of a code editor with what developers need for their core edit-build-debug cycle. It provides comprehensive code editing, navigation, and understanding support along with lightweight debugging, a rich extensibility model, and lightweight integration with existing tools.
+Early development — **there is no installable release yet.** The project is in
+Tier 0 (foundation).
 
-Visual Studio Code is updated monthly with new features and bug fixes. You can download it for Windows, macOS, and Linux on the [Visual Studio Code website](https://code.visualstudio.com/Download). To get the latest releases every day, install the [Insiders build](https://code.visualstudio.com/insiders).
+| Area | State |
+|---|---|
+| Editor shell rebrand (`product.json`) | Done; some upstream identifiers remain (URL protocol, Windows AppIds) pending the final name |
+| Extension gallery → Open VSX | Done |
+| Telemetry off by default | Done |
+| Native packaging CI (macOS arm64/x64, Windows x64) | In progress — not yet green |
+| Governance gate, risk classifier, audit log | Implemented and unit-tested in `src/vs/platform/governance/`; not yet wired into tool or model calls |
+| Product icons | Still upstream VS Code artwork |
+
+## How it differs from Code - OSS
+
+- **Extensions come from [Open VSX](https://open-vsx.org).** Microsoft's
+  marketplace terms don't permit use by forks, so extensions published only
+  there — including Microsoft's Remote-SSH — are unavailable.
+- **Telemetry is off by default** (`enableTelemetry: false`). Any future
+  collection requires a documented opt-in.
+- **The built-in GitHub Copilot extension is not packaged.** It reaches models
+  directly rather than through the governance gate.
+- **Agent actions are designed to pass through one governance gate.** Tool
+  execution and model requests will funnel through a single chokepoint that
+  applies approval gates and writes an audit log. Organisation policy
+  overrides user and project settings, so a repository cannot lower the bar
+  for its own code. The gate exists today; wiring it into those two call sites
+  is the next step.
+
+## Architecture
+
+```
+IDE shell → agent orchestrator → governance gate → capability layer → integrations
+                                  (approval + audit)  (model routing, retrieval,
+                                                       tools & infra, skills & hooks)
+```
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — system design and the tiered feature roadmap
+- [DECISIONS.md](DECISIONS.md) — decisions and their rationale, including why the
+  gate lives in `src/vs/platform/` rather than in an extension (D-003)
+
+## Building from source
+
+### Prerequisites
+
+- **Node.js** — the exact version in [`.nvmrc`](.nvmrc). A mismatch fails
+  `npm ci` on purpose; run `nvm use` first.
+- **Python 3** and a C/C++ toolchain for native modules:
+  - macOS: Xcode Command Line Tools
+  - Windows: Visual Studio 2022 with the *Desktop development with C++* workload
+  - Linux: `build-essential`, `libkrb5-dev`, `libx11-dev`, `libxkbfile-dev`,
+    `libsecret-1-dev`, `pkg-config`
+
+### Build and run
+
+```bash
+nvm use
+npm ci                 # first run takes 15–20 minutes (native modules)
+npm run compile
+./scripts/code.sh      # scripts\code.bat on Windows
+```
+
+### Lint and test
+
+```bash
+npm run eslint
+./scripts/test.sh --grep Governance    # governance gate unit tests
+```
+
+### Package
+
+Build each platform on its own OS; Electron native modules are not reliably
+cross-compiled.
+
+```bash
+npm run gulp vscode-darwin-arm64-min   # or vscode-darwin-x64-min, vscode-win32-x64-min
+```
+
+Output is written beside the repository, e.g. `../VSCode-darwin-arm64`.
 
 ## Contributing
 
-There are many ways in which you can participate in this project, for example:
+- Changes reach `main` through pull requests, and CI must pass.
+- **Production-impacting actions — deploys, merges, and infrastructure changes
+  on shared or remote clusters — require human sign-off.** Local Docker and
+  dev-only actions are low-friction. This rule applies to the code this repo
+  ships as well as to how it is developed; don't build shortcuts around it.
+- Code follows upstream VS Code conventions (tabs, localized user-facing
+  strings, disposables registered on creation). New files carry the
+  Kente Workbench copyright header; upstream files keep Microsoft's.
+- [CLAUDE.md](CLAUDE.md) holds the hard rules and known gotchas, and is the
+  briefing file for AI coding assistants working in this repository.
 
-* [Submit bugs and feature requests](https://github.com/microsoft/vscode/issues), and help us verify them as they are checked in
-* Review [source code changes](https://github.com/microsoft/vscode/pulls)
-* Review the [documentation](https://github.com/microsoft/vscode-docs) and make pull requests for anything from typos to new content.
+`CONTRIBUTING.md` and `SECURITY.md` are still upstream's and are due to be
+replaced. **Don't report security issues in this fork to Microsoft,** and don't
+open public issues for them — contact the
+[kete-org](https://github.com/kete-org) maintainers privately.
 
-If you are interested in fixing issues and contributing directly to the codebase, please see the document [How to Contribute](https://github.com/microsoft/vscode/wiki/How-to-Contribute), which covers the following:
+## Syncing with upstream
 
-* [How to build and run from source](https://github.com/microsoft/vscode/wiki/How-to-Contribute)
-* [The development workflow, including debugging and running tests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#debugging)
-* [Coding guidelines](https://github.com/microsoft/vscode/wiki/Coding-Guidelines)
-* [Submitting pull requests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests)
-* [Finding an issue to work on](https://github.com/microsoft/vscode/wiki/How-to-Contribute#where-to-contribute)
-* [Contributing to translations](https://aka.ms/vscodeloc)
+The `upstream` remote tracks `microsoft/vscode`. After merging upstream
+changes:
 
-## Feedback
-
-* Ask a question on [Stack Overflow](https://stackoverflow.com/questions/tagged/vscode)
-* [Request a new feature](CONTRIBUTING.md)
-* Upvote [popular feature requests](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
-* [File an issue](https://github.com/microsoft/vscode/issues)
-* Connect with the extension author community on [GitHub Discussions](https://github.com/microsoft/vscode-discussions/discussions) or [Slack](https://aka.ms/vscode-dev-community)
-* Follow [@code](https://x.com/code) and let us know what you think!
-
-See our [wiki](https://github.com/microsoft/vscode/wiki/Feedback-Channels) for a description of each of these channels and information on some other available community-driven channels.
-
-## Related Projects
-
-Many of the core components and extensions to VS Code live in their own repositories on GitHub. For example, the [node debug adapter](https://github.com/microsoft/vscode-node-debug) and the [mono debug adapter](https://github.com/microsoft/vscode-mono-debug) repositories are separate from each other. For a complete list, please visit the [Related Projects](https://github.com/microsoft/vscode/wiki/Related-Projects) page on our [wiki](https://github.com/microsoft/vscode/wiki).
-
-## Bundled Extensions
-
-VS Code includes a set of built-in extensions located in the [extensions](extensions) folder, including grammars and snippets for many languages. Extensions that provide rich language support (inline suggestions, Go to Definition) for a language have the suffix `language-features`. For example, the `json` extension provides coloring for `JSON` and the `json-language-features` extension provides rich language support for `JSON`.
-
-## Development Container
-
-This repository includes a Visual Studio Code Dev Containers / GitHub Codespaces development container.
-
-* For [Dev Containers](https://aka.ms/vscode-remote/download/containers), use the **Dev Containers: Clone Repository in Container Volume...** command, which creates a Docker volume for better disk I/O on macOS and Windows.
-  * If you already have VS Code and Docker installed, you can also click [here](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/microsoft/vscode) to get started. This will cause VS Code to automatically install the Dev Containers extension if needed, clone the source code into a container volume, and spin up a dev container for use.
-
-* For Codespaces, install the [GitHub Codespaces](https://marketplace.visualstudio.com/items?itemName=GitHub.codespaces) extension in VS Code, and use the **Codespaces: Create New Codespace** command.
-
-Docker / the Codespace should have at least **4 cores and 6 GB of RAM (8 GB recommended)** to run a full build. See the [development container README](.devcontainer/README.md) for more information.
-
-## Code of Conduct
-
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information, see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+1. Check `product.json` has not regained Microsoft endpoints or the Microsoft
+   marketplace (`build/hygiene.ts` rejects the marketplace).
+2. Confirm the two governance call sites —
+   `ILanguageModelToolsService.invokeTool` and
+   `ILanguageModelsService.sendChatRequest` — still exist and are still gated.
 
 ## License
 
-Copyright (c) Microsoft Corporation. All rights reserved.
+[MIT](LICENSE.txt). Kente Workbench is built on Code - OSS, Copyright (c)
+Microsoft Corporation; additions in this fork are Copyright (c) Kente Workbench
+contributors. Third-party components are listed in
+[ThirdPartyNotices.txt](ThirdPartyNotices.txt).
 
-Licensed under the [MIT](LICENSE.txt) license.
+"Visual Studio Code" and "VS Code" are trademarks of Microsoft Corporation.

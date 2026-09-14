@@ -155,6 +155,7 @@ export default defineConfig(
 	// write would be plainly wrong. Keep this list in sync with build/hygiene.ts.
 	{
 		files: [
+			'apply-product-json.ts',
 			'src/vs/platform/governance/**/*.ts',
 		],
 		rules: {

@@ -15,6 +15,7 @@ import {
 	GovernanceOutcome,
 	GovernanceRiskTier,
 	IGovernanceApprover,
+	IGovernanceAssessment,
 	IGovernanceDecision,
 	IGovernanceGate,
 	IGovernedAction,
@@ -78,7 +79,22 @@ export class GovernanceGate extends Disposable implements IGovernanceGate {
 		return DEFAULT_APPROVAL_THRESHOLD;
 	}
 
-	async authorize(action: IGovernedAction, token: CancellationToken): Promise<IGovernanceDecision> {
+	private isGatingEnabled(): boolean {
+		return this.configurationService.getValue(GovernanceConfigKeys.Enabled) !== false;
+	}
+
+	assess(action: IGovernedAction): IGovernanceAssessment {
+		let tier: GovernanceRiskTier;
+		try {
+			tier = classifyAction(action);
+		} catch {
+			// Same reasoning as in authorize: an unclassifiable action is not safe.
+			return { tier: GovernanceRiskTier.Production, approvalRequired: true };
+		}
+		return { tier, approvalRequired: this.isGatingEnabled() && isAtLeastAsRisky(tier, this.resolveThreshold()) };
+	}
+
+	async authorize(action: IGovernedAction, token: CancellationToken, approverForThisCall?: IGovernanceApprover): Promise<IGovernanceDecision> {
 		const auditId = generateUuid();
 
 		let tier: GovernanceRiskTier;
@@ -91,8 +107,7 @@ export class GovernanceGate extends Disposable implements IGovernanceGate {
 				`classification failed: ${error instanceof Error ? error.message : String(error)}`);
 		}
 
-		const gatingEnabled = this.configurationService.getValue(GovernanceConfigKeys.Enabled) !== false;
-		if (!gatingEnabled) {
+		if (!this.isGatingEnabled()) {
 			return this.record(action, auditId, tier, GovernanceOutcome.Allowed, false, 'gating disabled by configuration');
 		}
 
@@ -102,7 +117,7 @@ export class GovernanceGate extends Disposable implements IGovernanceGate {
 
 		// From here the action needs a human. Every path that does not end in an
 		// explicit yes must deny.
-		const approver = this._approver;
+		const approver = approverForThisCall ?? this._approver;
 		if (!approver) {
 			return this.record(action, auditId, tier, GovernanceOutcome.Denied, false, 'approval required but no approver is registered');
 		}
@@ -123,9 +138,10 @@ export class GovernanceGate extends Disposable implements IGovernanceGate {
 			return this.record(action, auditId, tier, GovernanceOutcome.Denied, true, 'cancelled while awaiting approval');
 		}
 
+		const where = approver.source ? ` in the ${approver.source}` : '';
 		return this.record(action, auditId, tier,
 			approved ? GovernanceOutcome.Allowed : GovernanceOutcome.Denied, true,
-			approved ? 'approved by a human' : 'rejected by a human');
+			approved ? `approved by a human${where}` : `rejected by a human${where}`);
 	}
 
 	/**

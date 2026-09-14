@@ -39,8 +39,9 @@ Tier 0 (foundation).
 - **Agent actions pass through one governance gate.** Every tool call and
   model request goes through a single chokepoint. Actions at or above the
   approval threshold (remote or shared infrastructure, by default) need your
-  approval in a dialog before they run, and every decision is written to the
-  *Kete Governance Audit* log. The threshold is an application setting, so a
+  approval before they run: you're asked once, in the tool's own chat
+  confirmation, which auto-approval settings can't skip. Every decision is
+  written to the *Kete Governance Audit* log. The threshold is an application setting, so a
   repository's workspace settings cannot lower the bar for its own code.
 
 ## Architecture

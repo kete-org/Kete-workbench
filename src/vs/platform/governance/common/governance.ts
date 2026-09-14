@@ -88,6 +88,13 @@ export interface IGovernanceDecision {
 	readonly auditId: string;
 }
 
+/** What the gate would require for an action, worked out without asking anyone or recording anything. */
+export interface IGovernanceAssessment {
+	readonly tier: GovernanceRiskTier;
+	/** Whether {@link IGovernanceGate.authorize} would need a human to approve the action. */
+	readonly approvalRequired: boolean;
+}
+
 export interface IApprovalRequest {
 	readonly action: IGovernedAction;
 	readonly tier: GovernanceRiskTier;
@@ -103,6 +110,8 @@ export interface IApprovalRequest {
  * see {@link IGovernanceGate}.
  */
 export interface IGovernanceApprover {
+	/** Where the human decision is made, recorded in the audit entry (for example "chat confirmation"). */
+	readonly source?: string;
 	requestApproval(request: IApprovalRequest, token: CancellationToken): Promise<boolean>;
 }
 
@@ -126,11 +135,23 @@ export interface IGovernanceGate {
 	readonly _serviceBrand: undefined;
 
 	/**
+	 * Work out whether `action` will need human approval, without asking anyone
+	 * or writing an audit entry. Lets a caller collect the approval through its
+	 * own UI before calling {@link authorize}. Fails closed like `authorize`: an
+	 * action that cannot be classified needs approval.
+	 */
+	assess(action: IGovernedAction): IGovernanceAssessment;
+
+	/**
 	 * Authorize `action`, asking for human approval if policy requires it, and
 	 * record the outcome. Callers must not execute unless the returned outcome
 	 * is {@link GovernanceOutcome.Allowed}.
+	 *
+	 * @param approver Asks for this call only, instead of the registered
+	 * approver. The gate still decides whether approval is needed and records
+	 * the outcome; the approver only supplies the human decision.
 	 */
-	authorize(action: IGovernedAction, token: CancellationToken): Promise<IGovernanceDecision>;
+	authorize(action: IGovernedAction, token: CancellationToken, approver?: IGovernanceApprover): Promise<IGovernanceDecision>;
 
 	/**
 	 * Register the component that asks the human. Only one approver is active;

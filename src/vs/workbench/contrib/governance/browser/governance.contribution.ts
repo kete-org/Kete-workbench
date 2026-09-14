@@ -49,10 +49,13 @@ export class WorkbenchGovernanceGate extends GovernanceGate {
 }
 
 /**
- * Asks the user with a modal dialog. The gate only calls this for actions at or
- * above the approval threshold, after any chat confirmation has already passed.
+ * Asks the user with a modal dialog. This is the fallback: a tool call that went
+ * through a chat or dialog confirmation carries that decision to the gate
+ * instead, so the user is asked once.
  */
 class DialogGovernanceApprover implements IGovernanceApprover {
+
+	readonly source = 'governance dialog';
 
 	constructor(private readonly dialogService: IDialogService) { }
 

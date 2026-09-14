@@ -56,6 +56,7 @@ import { TerminalToolId } from '../../common/tools/terminalToolIds.js';
 import { CountTokensCallback, createToolSchemaUri, IBeginToolCallOptions, IExternalPreToolUseHookResult, ILanguageModelToolsService, IPreparedToolInvocation, isToolSet, IToolData, IToolImpl, IToolInvocation, IToolInvokedEvent, IToolResult, IToolResultInputOutputDetails, IToolSet, SpecedToolAliases, stringifyPromptTsxPart, ToolAndToolSetEnablementMap, ToolDataSource, ToolInvocationPresentation, toolMatchesModel, ToolSet, ToolSetForModel, VSCodeToolReference } from '../../common/tools/languageModelToolsService.js';
 import { IToolResultCompressor } from '../../common/tools/toolResultCompressor.js';
 import { governanceDenialMessage, governedToolAction } from '../../../governance/common/governedActions.js';
+import { approvedInToolConfirmation, isExplicitApproval, requireGovernedConfirmation } from '../../../governance/common/governedToolConfirmation.js';
 import { getToolConfirmationAlert } from '../accessibility/chatAccessibilityProvider.js';
 import { IChatWidgetService } from '../chat.js';
 import { IChatToolRiskAssessmentService, ToolRiskLevel } from './chatToolRiskAssessmentService.js';
@@ -602,6 +603,8 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		let invocationTimeWatch: StopWatch | undefined;
 		let preparedInvocation: IPreparedToolInvocation | undefined;
 		let activeTool = tool;
+		// Kete Workbench: whether a person explicitly allowed this call in its confirmation.
+		let approvedInConfirmation = false;
 		try {
 			if (dto.context) {
 				if (!model) {
@@ -632,7 +635,16 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 				// In Autopilot, run the risk classifier on an auto-approved call that would
 				// otherwise show a confirmation. A "red" rating skips the call; anything else
 				// (including a classifier failure) keeps the original auto-confirmation.
-				const { autoConfirmed, skipExplanation: riskSkipExplanation } = await this._maybeApplyAutopilotRiskGate(tool, dto, preparedInvocation, preResolvedAutoConfirmed, token);
+				const { autoConfirmed: riskAutoConfirmed, skipExplanation: riskSkipExplanation } = await this._maybeApplyAutopilotRiskGate(tool, dto, preparedInvocation, preResolvedAutoConfirmed, token);
+
+				// Kete Workbench: when the governance gate will need approval, the
+				// confirmation below is that approval, so it can't be auto-approved.
+				// A call Autopilot is about to skip doesn't run, so it needs neither.
+				const governed = riskSkipExplanation
+					? { prepared: preparedInvocation, autoConfirmed: riskAutoConfirmed }
+					: requireGovernedConfirmation(this._governanceGate, dto, tool.data, preparedInvocation, riskAutoConfirmed, true);
+				preparedInvocation = governed.prepared;
+				const autoConfirmed = governed.autoConfirmed;
 
 				// Important: a tool invocation that will be autoconfirmed should never
 				// be in the chat response in the `NeedsConfirmation` state, even briefly,
@@ -679,6 +691,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 						this.playAccessibilitySignal([toolInvocation], dto.context?.sessionResource);
 					}
 					const userConfirmed = await IChatToolInvocation.awaitConfirmation(toolInvocation, token);
+					approvedInConfirmation = isExplicitApproval(userConfirmed);
 					this._logToolApprovalTelemetry(tool, dto, userConfirmed);
 					if (userConfirmed.type === ToolConfirmKind.Denied) {
 						throw new CancellationError();
@@ -710,13 +723,18 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 
 				const { autoConfirmed: fallbackAutoConfirmed, preparedInvocation: updatedPreparedInvocation } = await this.resolveAutoConfirmFromHook(preToolUseHookResult, tool, dto, preparedInvocation, undefined);
 				preparedInvocation = updatedPreparedInvocation;
-				const autoConfirmed = fallbackAutoConfirmed
+				const hookAutoConfirmed = fallbackAutoConfirmed
 					?? (preToolUseHookResult?.permissionDecision === 'ask' ? undefined : dto.preApproved);
+				// Kete Workbench: as above, a governed call's confirmation is its approval.
+				const governed = requireGovernedConfirmation(this._governanceGate, dto, tool.data, preparedInvocation, hookAutoConfirmed, false);
+				preparedInvocation = governed.prepared;
+				const autoConfirmed = governed.autoConfirmed;
 				if (preparedInvocation?.confirmationMessages?.title && !autoConfirmed) {
 					const result = await this._dialogService.confirm({ message: renderAsPlaintext(preparedInvocation.confirmationMessages.title), detail: renderAsPlaintext(preparedInvocation.confirmationMessages.message!) });
 					if (!result.confirmed) {
 						throw new CancellationError();
 					}
+					approvedInConfirmation = true;
 				}
 				dto.toolSpecificData = preparedInvocation?.toolSpecificData;
 			}
@@ -736,8 +754,10 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 			activeTool = currentTool;
 
 			// Kete Workbench: the governance gate is the last check before any tool
-			// runs, after the confirmation flow and hooks above (D-003).
-			const governance = await this._governanceGate.authorize(governedToolAction(dto, currentTool.data), token);
+			// runs, after the confirmation flow and hooks above (D-003). An explicit
+			// "Allow" in that confirmation is the approval, so the person isn't asked
+			// again; otherwise the gate falls back to its registered approver.
+			const governance = await this._governanceGate.authorize(governedToolAction(dto, currentTool.data), token, approvedInConfirmation ? approvedInToolConfirmation : undefined);
 			if (governance.outcome !== GovernanceOutcome.Allowed) {
 				if (request) {
 					this._chatService.appendProgress(request, {

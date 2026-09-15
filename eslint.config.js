@@ -156,6 +156,7 @@ export default defineConfig(
 	{
 		files: [
 			'apply-product-json.ts',
+			'extensions/kete-models/**/*.{ts,mts}',
 			'src/vs/platform/governance/**/*.ts',
 			'src/vs/workbench/contrib/governance/**/*.ts',
 		],

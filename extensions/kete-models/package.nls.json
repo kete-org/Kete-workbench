@@ -1,0 +1,20 @@
+{
+	"displayName": "Kete Models",
+	"description": "Routes each model request to the cheapest capable model: a local Ollama model for routine work, Claude only when needed.",
+	"category": "Kete",
+	"command.setClaudeApiKey": "Set Claude API Key",
+	"command.clearClaudeApiKey": "Clear Claude API Key",
+	"command.checkConnectivity": "Check Model Connectivity",
+	"command.showLog": "Show Model Routing Log",
+	"configuration.title": "Kete Models",
+	"configuration.ollama.endpoint": "Address of the Ollama server used for local models. Can only be set in user settings, so a workspace can't redirect model traffic.",
+	"configuration.ollama.model": "Ollama model that Kete Auto uses for routine requests, for example `qwen2.5-coder:7b`. When empty, the first model Ollama lists is used.",
+	"configuration.cloud.enabled": "Allow Kete Auto to send requests to Claude when a request needs it and an API key is set. When disabled, only local models are used. Can only be set in user settings.",
+	"configuration.routing.maxTier": "Most expensive tier Kete Auto may use. Requests that would need a higher tier use the highest allowed one instead.",
+	"configuration.routing.maxTier.local": "Local models only; nothing is sent to the cloud.",
+	"configuration.routing.maxTier.mid": "Up to the mid tier (Claude Haiku 4.5).",
+	"configuration.routing.maxTier.frontier": "Up to the frontier tier (see `#kete.models.routing.frontierModel#`).",
+	"configuration.routing.frontierModel": "Claude model used for the frontier tier.",
+	"configuration.routing.localMaxInputTokens": "Estimated prompt size, in tokens, above which Kete Auto moves a request from the local model to the mid tier. It also sets the context length requested from Ollama.",
+	"configuration.routing.midMaxInputTokens": "Estimated prompt size, in tokens, above which Kete Auto moves a request from the mid tier to the frontier tier."
+}

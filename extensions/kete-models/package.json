@@ -1,0 +1,133 @@
+{
+  "name": "kete-models",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "10.0.0",
+  "publisher": "vscode",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "enabledApiProposals": [
+    "languageModelSystem"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension",
+  "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "kete",
+        "displayName": "Kete"
+      }
+    ],
+    "commands": [
+      {
+        "command": "kete.models.setClaudeApiKey",
+        "title": "%command.setClaudeApiKey%",
+        "category": "%category%"
+      },
+      {
+        "command": "kete.models.clearClaudeApiKey",
+        "title": "%command.clearClaudeApiKey%",
+        "category": "%category%"
+      },
+      {
+        "command": "kete.models.checkConnectivity",
+        "title": "%command.checkConnectivity%",
+        "category": "%category%"
+      },
+      {
+        "command": "kete.models.showLog",
+        "title": "%command.showLog%",
+        "category": "%category%"
+      }
+    ],
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "kete.models.ollama.endpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "scope": "machine",
+          "markdownDescription": "%configuration.ollama.endpoint%"
+        },
+        "kete.models.ollama.model": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "%configuration.ollama.model%"
+        },
+        "kete.models.cloud.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "markdownDescription": "%configuration.cloud.enabled%"
+        },
+        "kete.models.routing.maxTier": {
+          "type": "string",
+          "enum": [
+            "local",
+            "mid",
+            "frontier"
+          ],
+          "enumDescriptions": [
+            "%configuration.routing.maxTier.local%",
+            "%configuration.routing.maxTier.mid%",
+            "%configuration.routing.maxTier.frontier%"
+          ],
+          "default": "frontier",
+          "scope": "application",
+          "markdownDescription": "%configuration.routing.maxTier%"
+        },
+        "kete.models.routing.frontierModel": {
+          "type": "string",
+          "enum": [
+            "claude-sonnet-5",
+            "claude-opus-5"
+          ],
+          "default": "claude-sonnet-5",
+          "scope": "application",
+          "markdownDescription": "%configuration.routing.frontierModel%"
+        },
+        "kete.models.routing.localMaxInputTokens": {
+          "type": "number",
+          "default": 8000,
+          "minimum": 1000,
+          "scope": "application",
+          "markdownDescription": "%configuration.routing.localMaxInputTokens%"
+        },
+        "kete.models.routing.midMaxInputTokens": {
+          "type": "number",
+          "default": 50000,
+          "minimum": 1000,
+          "scope": "application",
+          "markdownDescription": "%configuration.routing.midMaxInputTokens%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "gulp compile-extension:kete-models",
+    "watch": "gulp watch-extension:kete-models",
+    "test": "node --test \"out/test/**/*.test.js\""
+  },
+  "devDependencies": {
+    "@types/node": "24.x"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kete-org/Kete-workbench.git"
+  }
+}

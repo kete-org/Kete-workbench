@@ -6,6 +6,50 @@ information — add a superseding entry instead of editing an old one.
 
 ---
 
+## D-019 — Copilot is not the default chat agent
+
+**Status:** accepted
+**Date:** 2026-09-15
+
+`product.json` no longer has a `defaultChatAgent` block, so `@kete` (D-018) is
+the only default chat participant and Copilot's setup, sign-in and entitlement
+flows don't run.
+
+- **Why remove the key rather than repoint it.** Upstream treats the key as
+  "Copilot is configured": with it, the workbench signs in to GitHub, fetches
+  Copilot entitlements and offers Copilot setup. Without it,
+  `ChatEntitlementService` and `ChatSetupContribution` switch themselves off
+  — an upstream path, not a new one. Pointing the key at Kete would have kept
+  those GitHub flows running against Kete's ids.
+- **Type made optional, reads guarded.** `IProductConfiguration.defaultChatAgent`
+  is optional, so the compiler finds every read. Each unguarded read is
+  patched with a `// Kete Workbench:` comment: extension management, the
+  extensions workbench service, the chat widget, the chat status dashboard
+  and entry, onboarding and the default account service.
+- **Two reads would have broken startup.** `onboardingVariationA.ts` asserted
+  the key at module load (and `workbench.common.main` imports it); the
+  assertion now runs only when onboarding renders, and `startupPage.ts` doesn't
+  show onboarding without the key. `DefaultAccountService` waited for a
+  provider that is never set; without the key it initialises with no account,
+  and GitHub-backed features fall back to the built-in `github` authentication
+  provider, as upstream's out-of-sources defaults do.
+- **Copilot status bar entry hidden.** It reports Copilot plans, quotas and
+  inline suggestions and offers "Use AI Features"; it is hidden without the
+  key.
+- **Tests.** Upstream tests that exercise Copilot-only behaviour (upgrade
+  redirect URLs, the status bar entry and inline suggestion settings, the chat
+  extension's profile-switch enablement) are skipped when `product.json`
+  names no default chat agent, using upstream's conditional-skip pattern.
+- **`apply-product-json.ts`** removes `defaultChatAgent`, so an upstream sync
+  can't bring it back.
+- **Verified in a launched dev build** with a fresh, signed-out profile: no
+  Copilot setup, sign-in or status prompts; a chat message is answered by
+  Kete with Kete Auto selected; no new errors in the renderer or extension
+  host logs. Packaged builds already exclude the Copilot extension (Phase
+  0.2); a dev build still scans `extensions/copilot` from source.
+
+---
+
 ## D-018 — The agent core is a bundled extension; project rules can't touch governance or raise spend
 
 **Status:** accepted (first increment)
@@ -32,8 +76,7 @@ D-003 planned.
   request's model, then any available model.
 - **Default participant.** `@kete` is also registered as the default chat
   participant through a proposed API available to built-in extensions.
-  `product.json` still names Copilot as `defaultChatAgent`, so Copilot setup
-  prompts may appear. Changing that needs a check in a launched build.
+  Copilot is no longer `defaultChatAgent` (D-019).
 - **`.ide-config.json`** holds structured rules, coding standards and a model
   tier cap. It is read only in trusted workspaces, and only known keys are
   read: governance-like keys are reported and ignored, and governance

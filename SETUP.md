@@ -87,14 +87,17 @@ don't look for a way to bypass the ruleset for convenience.
   (tests: `./scripts/test.sh --grep Governance`, also run in CI), writes every
   decision to a durable audit store, and its settings can be pinned by admin
   policy. See `ARCHITECTURE.md` and D-003 in `DECISIONS.md`.
-- Models and the agent are first increments, not yet tried in a launched
-  editor. To use them: run Ollama locally (`http://localhost:11434`, configurable
+- Models and the agent are first increments. In a launched editor `@kete`
+  answers chat with Kete Auto selected, but no run against a real model has
+  been tried yet. To use them: run Ollama locally (`http://localhost:11434`, configurable
   with `kete.models.ollama.endpoint`) and/or run **Kete: Set Claude API Key**,
   then chat with `@kete` (the default participant) using **Kete Auto**. Their
   unit tests run with
   `node --test "extensions/kete-models/out/test/**/*.test.js"` and
   `node --test "extensions/kete-agent/out/test/**/*.test.js"` after
   `npm run compile`.
-- Copilot's setup prompts may still appear, because `product.json` still names
-  Copilot as the default chat agent; removing that needs a check in a launched
-  build first.
+- Copilot is not the default chat agent: `product.json` has no
+  `defaultChatAgent`, so Copilot's setup and sign-in prompts don't appear
+  (D-019). In a dev build the Copilot extension is still scanned from
+  `extensions/copilot`; launch with `--disable-extension GitHub.copilot-chat`
+  to match a packaged build.

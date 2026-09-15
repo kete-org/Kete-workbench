@@ -9,6 +9,7 @@ import { CancellationToken, CancellationTokenSource } from '../../../../../../ba
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { ChatMicrosoftAuthenticationEnabledSettingId } from '../../../../../../platform/chat/common/chatSettings.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
+import product from '../../../../../../platform/product/common/product.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { TelemetryLevel } from '../../../../../../platform/telemetry/common/telemetry.js';
 import { ChatEntitlement } from '../../../../../services/chat/common/chatEntitlementService.js';
@@ -27,7 +28,8 @@ function parseRedirectUrl(url: string): { returnTo: string; redirectHost: string
 	return { returnTo, redirectHost: redirectUrl.host, vscodeUri };
 }
 
-suite('buildUpgradeUrlWithRedirect', () => {
+// Kete Workbench: the redirect names the Copilot chat extension from the default chat agent, which product.json doesn't name (D-019).
+(product.defaultChatAgent ? suite : suite.skip)('buildUpgradeUrlWithRedirect', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 

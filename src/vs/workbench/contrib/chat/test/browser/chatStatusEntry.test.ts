@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import product from '../../../../../platform/product/common/product.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { isWeb } from '../../../../../base/common/platform.js';
@@ -94,7 +95,8 @@ suite('ChatStatusBarEntry - computeQuotaResumeState', () => {
 	});
 });
 
-suite('ChatStatusBarEntry', () => {
+// Kete Workbench: the status bar entry only exists with a Copilot default chat agent, which product.json doesn't name (D-019).
+(product.defaultChatAgent ? suite : suite.skip)('ChatStatusBarEntry', () => {
 
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 

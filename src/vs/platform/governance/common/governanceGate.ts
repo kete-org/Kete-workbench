@@ -40,6 +40,8 @@ export class GovernanceGate extends Disposable implements IGovernanceGate {
 
 	private _approver: IGovernanceApprover | undefined;
 
+	private _warnedAboutDisablingPolicy = false;
+
 	constructor(
 		private readonly auditSink: IAuditSink,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
@@ -79,8 +81,27 @@ export class GovernanceGate extends Disposable implements IGovernanceGate {
 		return DEFAULT_APPROVAL_THRESHOLD;
 	}
 
+	/**
+	 * Whether actions at or above the threshold need approval.
+	 *
+	 * The switch exists for development, so only a user can turn it off. A
+	 * policy can pin it on but not off: gating that an organisation could
+	 * disable for everyone would break the rule that production-impacting
+	 * actions need human sign-off, so a policy value of `false` is treated as
+	 * `true`. While either governance setting is pinned by policy the user's
+	 * switch is ignored too, otherwise turning it off would bypass the
+	 * administrator's threshold.
+	 */
 	private isGatingEnabled(): boolean {
-		return this.configurationService.getValue(GovernanceConfigKeys.Enabled) !== false;
+		const enabled = this.configurationService.inspect<boolean>(GovernanceConfigKeys.Enabled);
+		if (enabled.policyValue !== undefined || this.configurationService.inspect(GovernanceConfigKeys.ApprovalThreshold).policyValue !== undefined) {
+			if (enabled.policyValue === false && !this._warnedAboutDisablingPolicy) {
+				this._warnedAboutDisablingPolicy = true;
+				this.logService.warn(`[governance] ignoring policy value false for ${GovernanceConfigKeys.Enabled}: approval gating cannot be disabled by policy`);
+			}
+			return true;
+		}
+		return enabled.value !== false;
 	}
 
 	assess(action: IGovernedAction): IGovernanceAssessment {

@@ -54,6 +54,8 @@ jobs:
           --run src/vs/platform/governance/test/common/governanceGate.test.ts
           --run src/vs/workbench/contrib/governance/test/common/governedActions.test.ts
           --run src/vs/workbench/contrib/governance/test/common/governedToolConfirmation.test.ts
+          --run src/vs/workbench/contrib/governance/test/common/governanceConfiguration.test.ts
+          --run src/vs/platform/governance/test/common/governanceAuditStore.test.ts
           --run src/vs/workbench/contrib/chat/test/common/languageModels.test.ts
 
       # The invokeTool call site lives in the browser layer, so its tests run in

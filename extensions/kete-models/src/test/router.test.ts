@@ -92,6 +92,25 @@ suite('routeRequest', () => {
 		});
 	});
 
+	test('a maxTier hint can lower the user\'s cap but never raise it', () => {
+		const largePrompt = { estimatedInputTokens: 60000 };
+		assert.deepStrictEqual({
+			lowered: route({ request: { ...largePrompt, hints: { maxTier: ModelTier.Local } } }),
+			notRaised: route({ request: { ...largePrompt, hints: { maxTier: ModelTier.Frontier } }, policy: { maxTier: ModelTier.Mid } }).candidates,
+		}, {
+			lowered: {
+				required: 'Frontier',
+				candidates: ['qwen2.5-coder:7b'],
+				reasons: [
+					'~60000 tokens exceeds midMaxInputTokens (50000) → frontier',
+					'request capped at local',
+					'frontier unavailable (capped by maxTier local) → downgraded to local',
+				],
+			},
+			notRaised: ['claude-haiku-4-5-20251001', 'qwen2.5-coder:7b'],
+		});
+	});
+
 	test('reports why nothing is available', () => {
 		assert.deepStrictEqual({
 			offlineNoKey: route({ environment: { localState: ConnectivityState.Offline, localModel: undefined, hasApiKey: false } }).unavailable,
@@ -108,14 +127,14 @@ suite('routeRequest', () => {
 
 	test('parses hints and estimates tokens', () => {
 		assert.deepStrictEqual({
-			hints: parseRoutingHints({ kete: { minTier: 'frontier', mode: 'debug' } }),
+			hints: parseRoutingHints({ kete: { minTier: 'frontier', maxTier: 'mid', mode: 'debug' } }),
 			malformed: parseRoutingHints({ kete: { minTier: 'max', mode: 'orchestrator' } }),
 			missing: parseRoutingHints(undefined),
 			tokens: estimateTokens([
 				{ role: 'user', content: [{ type: 'text', text: 'x'.repeat(400) }, { type: 'image', mimeType: 'image/png', data: new Uint8Array() }] },
 			], [{ name: 'tool', description: 'd' }]),
 		}, {
-			hints: { minTier: ModelTier.Frontier, mode: 'debug' },
+			hints: { minTier: ModelTier.Frontier, maxTier: ModelTier.Mid, mode: 'debug' },
 			malformed: {},
 			missing: {},
 			tokens: Math.ceil((400 + 4 + 1 + 2) / 4) + 1500,

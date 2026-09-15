@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { DisposableLike } from '../core/agentTypes';
-import { mergeRoutingHints } from '../core/modelSelection';
+import { mergeRoutingHints, toRouterHints } from '../core/modelSelection';
 import { MAX_PROJECT_RULES_FILE_CHARS, parseProjectRules } from '../core/projectRules';
 import { ProjectRulesHost, ProjectRulesLoader, WorkspaceFolderRef } from '../core/projectRulesLoader';
 
@@ -111,6 +111,18 @@ suite('project rules file', () => {
 			mergeRoutingHints([folder('a', '{"rules":["x"]}')]),
 		], [
 			{ preferredTier: 'local', maxTier: 'local' },
+			undefined,
+		]);
+	});
+
+	test('only a project\'s maxTier cap reaches the router, never its preferredTier', () => {
+		assert.deepStrictEqual([
+			toRouterHints({ preferredTier: 'frontier', maxTier: 'mid' }),
+			toRouterHints({ preferredTier: 'frontier' }),
+			toRouterHints(undefined),
+		], [
+			{ maxTier: 'mid' },
+			undefined,
 			undefined,
 		]);
 	});

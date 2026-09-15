@@ -14,11 +14,29 @@ import { FolderProjectRules } from './projectRulesLoader';
 export const KETE_AUTO_MODEL_SELECTOR = { vendor: 'kete', family: 'kete-auto' } as const;
 
 /**
- * The model option key under which routing hints are passed to Kete's router,
- * as `{ [KETE_ROUTING_MODEL_OPTION]: ModelRoutingHints }`. Other vendors don't
- * receive it.
+ * The model option key under which routing hints are passed to Kete's router
+ * (`kete-models` reads `modelOptions.kete`), as
+ * `{ [KETE_ROUTING_MODEL_OPTION]: RouterHints }`. Other vendors don't receive it.
  */
-export const KETE_ROUTING_MODEL_OPTION = 'keteRouting';
+export const KETE_ROUTING_MODEL_OPTION = 'kete';
+
+/**
+ * The hints the router accepts from a project: only a cap. The router can only
+ * lower its tier for a `maxTier` hint, never raise it.
+ */
+export interface RouterHints {
+	readonly maxTier: ModelTier;
+}
+
+/**
+ * Turns a project's routing hints into router hints. Only `maxTier` is
+ * forwarded: a repository's rules file may keep work on cheaper models, but it
+ * must not make the person spend more on cloud models than the router would
+ * choose, so `preferredTier` is not sent. Returns `undefined` when there is no cap.
+ */
+export function toRouterHints(hints: ModelRoutingHints | undefined): RouterHints | undefined {
+	return hints?.maxTier ? { maxTier: hints.maxTier } : undefined;
+}
 
 /**
  * Combines the routing hints of several workspace folders. The lowest `maxTier`

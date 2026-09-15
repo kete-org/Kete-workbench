@@ -21,12 +21,18 @@ const MODE_MINIMUM_TIER: Readonly<Record<AgentMode, ModelTier>> = {
 
 /**
  * Hints a caller may pass as `modelOptions.kete` on a request to Kete Auto.
- * Hints can only raise the tier, never above the user's `maxTier` or past
- * `cloud.enabled`, so a caller can't force spend the user didn't allow.
+ * `minTier` and `mode` can only raise the tier, never above the user's
+ * `maxTier` or past `cloud.enabled`, so a caller can't force spend the user
+ * didn't allow. `maxTier` can only lower the user's cap.
  */
 export interface RoutingHints {
 	/** The lowest tier this request should use. */
 	readonly minTier?: ModelTier;
+	/**
+	 * The highest tier this request may use, for example a project's cap from
+	 * its rules file. Only takes effect when below the user's `maxTier`.
+	 */
+	readonly maxTier?: ModelTier;
 	readonly mode?: AgentMode;
 }
 
@@ -42,9 +48,11 @@ export function parseRoutingHints(modelOptions: unknown): RoutingHints {
 		return {};
 	}
 	const minTier = parseModelTier(Reflect.get(kete, 'minTier'));
+	const maxTier = parseModelTier(Reflect.get(kete, 'maxTier'));
 	const mode: unknown = Reflect.get(kete, 'mode');
 	return {
 		...(minTier !== undefined ? { minTier } : {}),
+		...(maxTier !== undefined ? { maxTier } : {}),
 		...(mode === 'plan' || mode === 'code' || mode === 'debug' || mode === 'ask' ? { mode } : {}),
 	};
 }
@@ -154,8 +162,13 @@ export function estimateTokens(messages: readonly ChatMessage[], tools: readonly
  * 3. A tier is skipped when it is above `maxTier`, cloud is disabled or has no
  *    key, its service is offline, or its model already failed for this request.
  */
-export function routeRequest(request: RoutingRequest, policy: RoutingPolicy, environment: RoutingEnvironment): RoutingDecision {
+export function routeRequest(request: RoutingRequest, userPolicy: RoutingPolicy, environment: RoutingEnvironment): RoutingDecision {
 	const reasons: string[] = [];
+	// A request's maxTier hint can only lower the user's cap, never raise it.
+	const hintedMax = request.hints.maxTier;
+	const policy: RoutingPolicy = hintedMax !== undefined && hintedMax < userPolicy.maxTier
+		? { ...userPolicy, maxTier: hintedMax }
+		: userPolicy;
 	let required = ModelTier.Local;
 	const raise = (tier: ModelTier, reason: string) => {
 		if (tier > required) {
@@ -185,6 +198,9 @@ export function routeRequest(request: RoutingRequest, policy: RoutingPolicy, env
 	}
 	if (reasons.length === 0) {
 		reasons.push('routine request → local');
+	}
+	if (policy !== userPolicy) {
+		reasons.push(`request capped at ${modelTierName(policy.maxTier)}`);
 	}
 
 	const localUsable = localModel !== undefined

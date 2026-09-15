@@ -8,7 +8,7 @@ import { runAgentLoop } from '../core/agentLoop';
 import { AgentMessage } from '../core/agentTypes';
 import { computeContextBudget, ContextItem, fitHistory, renderRetrievedContext } from '../core/contextAssembly';
 import { DEFAULT_GOVERNANCE_APPROVAL_THRESHOLD, GovernanceRiskTier, GovernanceSettings, toGovernanceRiskTier } from '../core/governance';
-import { KETE_ROUTING_MODEL_OPTION, mergeRoutingHints, selectAgentModel } from '../core/modelSelection';
+import { KETE_ROUTING_MODEL_OPTION, mergeRoutingHints, selectAgentModel, toRouterHints } from '../core/modelSelection';
 import { ProjectRulesProblem } from '../core/projectRules';
 import { FolderProjectRules, ProjectRulesLoader } from '../core/projectRulesLoader';
 import { composeSystemPrompt, DEFAULT_AGENT_MODE } from '../core/promptComposition';
@@ -74,8 +74,9 @@ async function handleRequest(request: vscode.ChatRequest, context: vscode.ChatCo
 	const current: AgentMessage = { role: 'user', parts: [{ kind: 'text', text: retrieved ? `${request.prompt}\n\n${retrieved}` : request.prompt }] };
 	const { messages } = fitHistory(toAgentHistory(context.history), current, budget.availableTokens);
 
-	// Routing hints only mean something to Kete's own router.
-	const routing = selection.source === 'keteAuto' ? mergeRoutingHints(folderRules) : undefined;
+	// Routing hints only mean something to Kete's own router, and a project may
+	// only cap the tier, not raise it.
+	const routing = selection.source === 'keteAuto' ? toRouterHints(mergeRoutingHints(folderRules)) : undefined;
 
 	const result = await runAgentLoop({
 		model: new VsCodeAgentModel(selection.model, token, routing && { [KETE_ROUTING_MODEL_OPTION]: routing }),

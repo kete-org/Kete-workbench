@@ -36,11 +36,11 @@
 			"additionalProperties": false,
 			"properties": {
 				"preferredTier": {
-					"description": "The tier to try first.",
+					"description": "Recorded for future use; not applied to routing today. A repository's rules file can only cap the tier with maxTier, never raise model spend.",
 					"$ref": "#/definitions/modelTier"
 				},
 				"maxTier": {
-					"description": "The most expensive tier this project may use.",
+					"description": "The most expensive tier this project may use. The router uses the lower of this and the user's own kete.models.routing.maxTier.",
 					"$ref": "#/definitions/modelTier"
 				}
 			}

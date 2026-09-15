@@ -1,0 +1,20 @@
+<!--
+	The small-size variant of the mark in kete-icon.svg: one warp strip over one
+	weft strip instead of four crossings. Below about 32 px the full weave has
+	more edges than there are pixels to draw them with, and it silts up into a
+	textured square; this keeps the same idea, colours and proportions with half
+	the detail, so a task bar or tab still shows a legible cross of gold over
+	green.
+
+	Used by `node generate-icons.ts` for every target 32 px and under. Edit both
+	files together if the mark changes.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+	<rect x="0" y="0" width="1024" height="1024" rx="230" ry="230" fill="#14161C"/>
+
+	<!-- Weft: horizontal, green, under. -->
+	<rect x="104" y="396" width="816" height="232" rx="40" fill="#0F8A62"/>
+
+	<!-- Warp: vertical, gold, over, so the crossing still shows an over/under. -->
+	<rect x="396" y="104" width="232" height="816" rx="40" fill="#E9A73C"/>
+</svg>

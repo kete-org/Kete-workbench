@@ -6,6 +6,44 @@ information — add a superseding entry instead of editing an old one.
 
 ---
 
+## D-021 — The app icon is a woven mark, generated from one SVG
+
+**Status:** accepted
+**Date:** 2026-09-15
+
+Every application icon is now Kete Workbench's own, replacing the upstream VS
+Code artwork that shipped in `resources/`.
+
+- **The mark.** Two gold warp strips crossing two green weft strips, with the
+  over/under alternating at all four crossings, on a dark rounded square.
+  "Kete" is a woven basket (D-004), so the mark is a weave rather than a
+  letterform — it says what the name means without depending on the Latin
+  alphabet, and it isn't a coloured glyph like most editor icons.
+- **Two masters, not one.** `resources/kete-icon.svg` is the full weave;
+  `resources/kete-icon-small.svg` reduces it to a single crossing for targets
+  32 px and under, where four crossings have more edges than there are pixels
+  and silt up into a textured square. Both must change together.
+- **Generated, never hand-edited.** `node generate-icons.ts` writes all 22
+  files: the `.icns`, the two `.ico`s, the Windows tiles, the 14 Inno Setup
+  installer bitmaps, and the Linux and PWA PNGs. Per-platform hand editing is
+  what makes icon sets drift, and a fork will re-cut these more than once.
+- **Rasterized with Chromium from the repo's `node_modules`,** because no SVG
+  rasterizer can be assumed present and Chromium renders the SVG the way the
+  editor would. `.icns` assembly uses `iconutil` and the installer bitmaps use
+  `sips`, so the script currently needs macOS. CI never runs it; it packages
+  the committed files.
+- **The `.ico` files are written directly** (PNG-compressed entries, which
+  Windows has read since Vista) rather than pulling in an icon library for one
+  60-line container format.
+- **Verified** by unpacking what was written: the `.icns` carries all ten
+  entries, both `.ico`s list the expected sizes and every entry really is a
+  PNG, and all 14 bitmaps kept the exact dimensions Inno Setup expects.
+- **Still upstream artwork:** the ~29 per-language file-type icons and the
+  empty-editor letterpress watermarks. They carry the VS Code logo, so they
+  remain both a branding and a trademark item to close.
+
+---
+
 ## D-020 — Cloud models come from interchangeable vendors; OpenAI-compatible is the second one
 
 **Status:** accepted

@@ -37,8 +37,19 @@ The script only changes keys that differ, keeps upstream's tab formatting,
 and saves the previous file as `product.json.bak` (gitignored). On an
 already-branded `product.json` it changes nothing.
 
-Icons under `resources/darwin/`, `resources/win32/`, `resources/linux/`
-still need your own branding assets — not yet done.
+Icons are generated from `resources/kete-icon.svg`, with
+`resources/kete-icon-small.svg` used at 32 px and under. After changing
+either, regenerate and commit what it writes — CI packages the committed
+files, it does not run this:
+
+```bash
+node generate-icons.ts
+```
+
+It needs macOS, because `.icns` is assembled by `iconutil` and the Inno Setup
+bitmaps are converted by `sips`. The per-language file-type icons
+(`resources/darwin/*.icns`, `resources/win32/*.ico`) are still upstream VS Code
+artwork and are not generated yet.
 
 ## 3. First local build + smoke test
 

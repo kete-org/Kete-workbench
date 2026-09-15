@@ -58,6 +58,14 @@ jobs:
           --run src/vs/platform/governance/test/common/governanceAuditStore.test.ts
           --run src/vs/workbench/contrib/chat/test/common/languageModels.test.ts
 
+      # Model routing (D-017) and the agent core (D-018). Their portable cores
+      # are tested with Node's test runner against the output `npm run compile`
+      # already produced.
+      - name: Kete models and agent unit tests
+        run: |
+          node --test "extensions/kete-models/out/test/**/*.test.js"
+          node --test "extensions/kete-agent/out/test/**/*.test.js"
+
       # The invokeTool call site lives in the browser layer, so its tests run in
       # Electron, which needs a virtual display on Linux. Ubuntu 24.04 blocks
       # unprivileged user namespaces through AppArmor, which Chromium's sandbox

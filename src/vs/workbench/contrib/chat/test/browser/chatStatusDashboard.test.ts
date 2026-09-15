@@ -282,7 +282,8 @@ suite('ChatStatusDashboard', () => {
 		return dashboard;
 	}
 
-	test('preserves inline suggestion language setting state across writes', async () => {
+	// Kete Workbench: inline suggestion settings come from the Copilot default chat agent, which product.json doesn't name (D-019).
+	(product.defaultChatAgent ? test : test.skip)('preserves inline suggestion language setting state across writes', async () => {
 		const defaultChat = product.defaultChatAgent;
 		assert.ok(defaultChat);
 
@@ -400,7 +401,8 @@ suite('ChatStatusDashboard', () => {
 		});
 	});
 
-	test('removes inherited language overrides from every configured scope', async () => {
+	// Kete Workbench: inline suggestion settings come from the Copilot default chat agent, which product.json doesn't name (D-019).
+	(product.defaultChatAgent ? test : test.skip)('removes inherited language overrides from every configured scope', async () => {
 		const defaultChat = product.defaultChatAgent;
 		assert.ok(defaultChat);
 
@@ -458,7 +460,8 @@ suite('ChatStatusDashboard', () => {
 		});
 	});
 
-	test('restores the override hint when the final queued write fails', async () => {
+	// Kete Workbench: inline suggestion settings come from the Copilot default chat agent, which product.json doesn't name (D-019).
+	(product.defaultChatAgent ? test : test.skip)('restores the override hint when the final queued write fails', async () => {
 		const defaultChat = product.defaultChatAgent;
 		assert.ok(defaultChat);
 

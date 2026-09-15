@@ -83,9 +83,21 @@ don't look for a way to bypass the ruleset for convenience.
 - Extension gallery is pointed at Open VSX by default — verify licensing/
   availability of the extensions your team actually needs before relying
   on it exclusively.
-- No Kete agent loop yet. The governance gate gates every tool call and
-  records every model request (tests: `./scripts/test.sh --grep Governance`,
-  also run in CI), writes every decision to a durable audit store, and its
-  settings can be pinned by admin policy. The planned `kete-agent` extension
-  hasn't been started. See
-  `ARCHITECTURE.md` and D-003 in `DECISIONS.md`.
+- The governance gate gates every tool call and records every model request
+  (tests: `./scripts/test.sh --grep Governance`, also run in CI), writes every
+  decision to a durable audit store, and its settings can be pinned by admin
+  policy. See `ARCHITECTURE.md` and D-003 in `DECISIONS.md`.
+- Models and the agent are first increments. In a launched editor `@kete`
+  answers chat with Kete Auto selected, but no run against a real model has
+  been tried yet. To use them: run Ollama locally (`http://localhost:11434`, configurable
+  with `kete.models.ollama.endpoint`) and/or run **Kete: Set Claude API Key**,
+  then chat with `@kete` (the default participant) using **Kete Auto**. Their
+  unit tests run with
+  `node --test "extensions/kete-models/out/test/**/*.test.js"` and
+  `node --test "extensions/kete-agent/out/test/**/*.test.js"` after
+  `npm run compile`.
+- Copilot is not the default chat agent: `product.json` has no
+  `defaultChatAgent`, so Copilot's setup and sign-in prompts don't appear
+  (D-019). In a dev build the Copilot extension is still scanned from
+  `extensions/copilot`; launch with `--disable-extension GitHub.copilot-chat`
+  to match a packaged build.

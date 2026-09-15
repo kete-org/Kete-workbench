@@ -56,8 +56,10 @@ const identity: Record<string, unknown> = {
 	enableTelemetry: false,
 };
 
-// Microsoft-specific endpoints that must not come back (CLAUDE.md hard rules).
-const removedKeys = ['aiConfig', 'crashReporter', 'updateUrl'];
+// Microsoft-specific endpoints that must not come back (CLAUDE.md hard rules),
+// and the Copilot default chat agent, whose absence switches off Copilot's
+// setup, sign-in and entitlement flows so @kete is the default (D-019).
+const removedKeys = ['aiConfig', 'crashReporter', 'updateUrl', 'defaultChatAgent'];
 
 const original = fs.readFileSync(productPath, 'utf8');
 const product: Record<string, unknown> = JSON.parse(original);

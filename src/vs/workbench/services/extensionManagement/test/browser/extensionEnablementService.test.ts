@@ -1186,7 +1186,8 @@ suite('ExtensionEnablementService Test', () => {
 		assert.deepStrictEqual((<IExtension>target.args[0][0][0]).identifier, { id: 'pub.a' });
 	});
 
-	test('test chat extension is disabled on profile switch when setup is not completed', async () => {
+	// Kete Workbench: product.json names no default chat agent, so there is no chat extension to disable (D-019).
+	(productService.defaultChatAgent ? test : test.skip)('test chat extension is disabled on profile switch when setup is not completed', async () => {
 		const chatExtensionId = productService.defaultChatAgent!.chatExtensionId;
 		const chatExtension = aLocalExtension(chatExtensionId, undefined, ExtensionType.System);
 		installed.push(chatExtension);

@@ -48,7 +48,14 @@ import { GitHubPaths, IDefaultAccountService } from '../../../../../platform/def
 import product from '../../../../../platform/product/common/product.js';
 import { isCompletionsEnabled } from '../../../../../editor/common/services/completionsEnablement.js';
 
-const defaultChat = product.defaultChatAgent;
+// Kete Workbench: product.json names no default chat agent (D-019).
+const defaultChat = {
+	completionsEnablementSetting: product.defaultChatAgent?.completionsEnablementSetting ?? '',
+	nextEditSuggestionsSetting: product.defaultChatAgent?.nextEditSuggestionsSetting ?? '',
+	termsStatementUrl: product.defaultChatAgent?.termsStatementUrl ?? '',
+	privacyStatementUrl: product.defaultChatAgent?.privacyStatementUrl ?? '',
+	provider: { default: { name: product.defaultChatAgent?.provider.default.name ?? '' } },
+};
 const completionsConfigurationTargets = [
 	ConfigurationTarget.WORKSPACE_FOLDER,
 	ConfigurationTarget.WORKSPACE,

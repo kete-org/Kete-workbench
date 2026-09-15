@@ -250,6 +250,10 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 			return; // AI features are hidden, do not show AI-focused onboarding
 		}
 
+		if (!this.productService.defaultChatAgent) {
+			return; // Kete Workbench: onboarding signs in to Copilot, which is not the default chat agent (D-019)
+		}
+
 		if (!this.storageService.isNew(StorageScope.APPLICATION)) {
 			return; // only show onboarding for new users who have never used the product before
 		}

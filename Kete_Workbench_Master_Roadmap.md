@@ -22,18 +22,18 @@ Must exist before anything else works.
 | Component | Notes |
 |---|---|
 | VS Code fork | Fork `microsoft/vscode` directly (not Cursor/Void) to keep upstream merges clean |
-| Agent orchestrator | Multi-turn tool-calling loop: plan → act → observe → self-correct. Adopt the loop inherited from upstream VS Code rather than building one (D-003) |
+| Agent orchestrator | Multi-turn tool-calling loop: plan → act → observe → self-correct. First increment: `@kete` in `extensions/kete-agent`, acting only through the gated `vscode.lm` and tool APIs (D-003, D-018) |
 | Tool layer | `read_file`, `edit_file`, `run_terminal`, `search_code`, git ops — sandboxed, permission-gated |
 | Diff/edit UI | Propose changes as diffs; accept/reject/edit before applying (inherited from upstream) |
 | Checkpointing / snapshots | Revertible state before each agent action (inherited from upstream) |
 | macOS + Windows CI matrix | GitHub Actions (`macos-latest` arm64, `macos-15-intel` x64, `windows-latest` x64) — native builds, no cross-compilation. Done: packages build on every PR |
 | Code signing | Apple Developer account (notarization mandatory) + Windows cert (can defer EV cert) |
-| Project rules file | `.ide-config.json` — model routing thresholds, coding standards, rules |
+| Project rules file | `.ide-config.json` — coding standards, rules, and a model-tier cap. First increment done; can't change governance or raise model spend (D-018) |
 | Governance approval gates + audit log | Hard rule: no autonomous production changes without human sign-off (inherited from established enterprise AI governance practice). Gate, risk classifier and audit log are wired into every tool call and model request; a governed tool call is approved once, in its own chat confirmation, which auto-approval can't skip (D-003). Settings are pinnable by admin policy, and decisions go to a durable, hash-chained audit store (D-016). Remaining gaps: agent-host sessions, MCP tools, indirect commands |
-| Dual-mode online/offline model routing | `ModelProvider` interface (`OllamaProvider`, `ClaudeAPIProvider`), connectivity state machine (online/offline/degraded) |
-| Tiered model routing + self-hosted inference | Small local model for routine work, mid/frontier tier only when needed; cuts inference cost, the core economic lever |
-| Context efficiency | AST-aware chunking (Tree-sitter), persistent context cache, diff-only context updates |
-| Offline request queue | Disk-persisted queue for frontier-tier requests made while offline |
+| Dual-mode online/offline model routing | `ModelProvider` interface (Ollama, Claude API), connectivity state machine (online/offline/degraded). First increment done in `extensions/kete-models` (D-017) |
+| Tiered model routing + self-hosted inference | Small local model for routine work, mid/frontier tier only when needed; cuts inference cost, the core economic lever. First increment: **Kete Auto** (D-017) |
+| Context efficiency | AST-aware chunking (Tree-sitter), persistent context cache, diff-only context updates. Only a token-budgeted context assembler exists so far (D-018) |
+| Offline request queue | Disk-persisted queue for frontier-tier requests made while offline. Interface specified; waits for a non-interactive caller (D-017) |
 | Remote dev | Plain SSH remote development (Tailscale deliberately excluded). Microsoft's Remote-SSH isn't on Open VSX, so this needs an open-source implementation (D-005) |
 
 ---

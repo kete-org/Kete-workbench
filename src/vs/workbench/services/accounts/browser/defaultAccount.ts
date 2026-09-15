@@ -90,7 +90,29 @@ interface IMcpRegistryResponse {
 	readonly mcp_registries: ReadonlyArray<IMcpRegistryProvider>;
 }
 
-function toDefaultAccountConfig(defaultChatAgent: IDefaultChatAgent): IDefaultAccountConfig {
+// Kete Workbench: product.json names no default chat agent (D-019), so there is
+// no Copilot account to resolve. GitHub-backed features still sign in with the
+// built-in GitHub authentication provider, as upstream's out-of-sources product
+// defaults do; no entitlement, token or managed-settings URLs are configured.
+const noDefaultChatAgentAccountConfig: IDefaultAccountConfig = {
+	preferredExtensions: [],
+	authenticationProvider: {
+		default: { id: 'github', name: 'GitHub' },
+		enterprise: { id: 'github-enterprise', name: 'GitHub Enterprise' },
+		enterpriseProviderConfig: '',
+		enterpriseProviderUriSetting: '',
+		scopes: [],
+	},
+	entitlementUrl: '',
+	tokenEntitlementUrl: '',
+	mcpRegistryDataUrl: '',
+	managedSettingsUrl: '',
+};
+
+function toDefaultAccountConfig(defaultChatAgent: IDefaultChatAgent | undefined): IDefaultAccountConfig {
+	if (!defaultChatAgent) {
+		return noDefaultChatAgentAccountConfig;
+	}
 	return {
 		preferredExtensions: [
 			defaultChatAgent.chatExtensionId,
@@ -155,6 +177,11 @@ export class DefaultAccountService extends Disposable implements IDefaultAccount
 	) {
 		super();
 		this.defaultAccountConfig = toDefaultAccountConfig(productService.defaultChatAgent);
+		if (!productService.defaultChatAgent) {
+			// Kete Workbench: no provider is ever set without a default chat agent
+			// (D-019), so callers waiting for initialization must not block.
+			this.initBarrier.open();
+		}
 	}
 
 	async getDefaultAccount(): Promise<IDefaultAccount | null> {
@@ -1641,6 +1668,9 @@ class DefaultAccountProviderContribution extends Disposable implements IWorkbenc
 		@IDefaultAccountService defaultAccountService: IDefaultAccountService,
 	) {
 		super();
+		if (!productService.defaultChatAgent) {
+			return; // Kete Workbench: no Copilot account without a default chat agent (D-019)
+		}
 		const defaultAccountProvider = this._register(instantiationService.createInstance(DefaultAccountProvider, toDefaultAccountConfig(productService.defaultChatAgent)));
 		defaultAccountService.setDefaultAccountProvider(defaultAccountProvider);
 	}

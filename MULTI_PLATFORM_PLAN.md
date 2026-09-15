@@ -45,7 +45,7 @@ governance gate — packaged as a standard installable extension for
 *stock* VS Code, not the Kete Workbench fork. Lower adoption friction:
 try the agent without switching editors.
 **Relationship to the fork**: in the fork, agent features and UI are
-planned as a bundled extension (`kete-agent`, not yet written) on top of
+a bundled extension (`extensions/kete-agent`, first increment; D-018) on top of
 the governance gate in `src/vs/platform/governance/` (D-003). The
 standalone extension would reuse that extension's code, packaged for Open
 VSX (and the VS Code Marketplace, where its terms allow) with fork-specific

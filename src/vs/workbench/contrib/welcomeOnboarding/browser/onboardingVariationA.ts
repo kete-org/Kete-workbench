@@ -11,6 +11,7 @@ import { StopWatch } from '../../../../base/common/stopwatch.js';
 import { URI } from '../../../../base/common/uri.js';
 import { isWindows, isMacintosh, isLinux } from '../../../../base/common/platform.js';
 import { assertDefined } from '../../../../base/common/types.js';
+import { IDefaultChatAgent } from '../../../../base/common/product.js';
 import { FileAccess } from '../../../../base/common/network.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { KeyCode } from '../../../../base/common/keyCodes.js';
@@ -77,8 +78,14 @@ type OnboardingActionEvent = {
 
 type EnterpriseSignInUiState = 'options' | 'instance' | 'progress';
 
-assertDefined(product.defaultChatAgent, 'Onboarding requires a default chat agent product configuration.');
-const defaultChat = product.defaultChatAgent;
+// Kete Workbench: this module is imported by workbench.common.main, so a
+// load-time assertion would stop the workbench from starting when product.json
+// names no default chat agent (D-019). Assert when onboarding renders instead;
+// startupPage.ts doesn't show onboarding without one.
+function getDefaultChat(): IDefaultChatAgent {
+	assertDefined(product.defaultChatAgent, 'Onboarding requires a default chat agent product configuration.');
+	return product.defaultChatAgent;
+}
 
 /**
  * Variation A — Classic Wizard Modal
@@ -516,12 +523,12 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 
 		// GitHub Copilot disclaimer
 		const copilotDisclaimer = append(disclaimerCol, $('.onboarding-a-signin-disclaimer'));
-		copilotDisclaimer.append(localize('onboarding.signIn.disclaimer.prefix', "By signing in, you agree to {0}'s ", defaultChat.provider.default.name));
-		this._createInlineLink(copilotDisclaimer, localize('onboarding.signIn.disclaimer.terms', "Terms"), defaultChat.termsStatementUrl);
+		copilotDisclaimer.append(localize('onboarding.signIn.disclaimer.prefix', "By signing in, you agree to {0}'s ", getDefaultChat().provider.default.name));
+		this._createInlineLink(copilotDisclaimer, localize('onboarding.signIn.disclaimer.terms', "Terms"), getDefaultChat().termsStatementUrl);
 		copilotDisclaimer.append(localize('onboarding.signIn.disclaimer.middle', " and "));
-		this._createInlineLink(copilotDisclaimer, localize('onboarding.signIn.disclaimer.privacy', "Privacy Statement"), defaultChat.privacyStatementUrl);
-		copilotDisclaimer.append(localize('onboarding.signIn.disclaimer.copilotPrefix', ". {0} Copilot may show ", defaultChat.provider.default.name));
-		this._createInlineLink(copilotDisclaimer, localize('onboarding.signIn.disclaimer.publicCode', "public code"), defaultChat.publicCodeMatchesUrl);
+		this._createInlineLink(copilotDisclaimer, localize('onboarding.signIn.disclaimer.privacy', "Privacy Statement"), getDefaultChat().privacyStatementUrl);
+		copilotDisclaimer.append(localize('onboarding.signIn.disclaimer.copilotPrefix', ". {0} Copilot may show ", getDefaultChat().provider.default.name));
+		this._createInlineLink(copilotDisclaimer, localize('onboarding.signIn.disclaimer.publicCode', "public code"), getDefaultChat().publicCodeMatchesUrl);
 		copilotDisclaimer.append(localize('onboarding.signIn.disclaimer.improveSuffix', " suggestions and use your data to improve the product."));
 		copilotDisclaimer.append(' ');
 		copilotDisclaimer.append(localize('onboarding.signIn.disclaimer.settingsPrefix', "You can change these "));
@@ -626,7 +633,7 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 				case GheParseResultKind.Invalid:
 					inputBox.element.classList.add('error');
 					message.classList.add('error');
-					message.textContent = localize('onboarding.signIn.enterprise.invalid', 'You must enter a valid {0} instance (i.e. "octocat" or "https://octocat.ghe.com")', defaultChat.provider.enterprise.name);
+					message.textContent = localize('onboarding.signIn.enterprise.invalid', 'You must enter a valid {0} instance (i.e. "octocat" or "https://octocat.ghe.com")', getDefaultChat().provider.enterprise.name);
 					submitAction.enabled = false;
 					return false;
 			}
@@ -663,11 +670,11 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 		spinner.classList.add(...ThemeIcon.asClassNameArray(Codicon.loading), 'codicon-modifier-spin');
 		spinner.setAttribute('aria-hidden', 'true');
 		const message = append(container, $('.onboarding-a-signin-ghe-progress-message'));
-		message.textContent = localize('onboarding.signIn.enterprise.progress', "Waiting for {0} sign-in to complete...", defaultChat.provider.enterprise.name);
+		message.textContent = localize('onboarding.signIn.enterprise.progress', "Waiting for {0} sign-in to complete...", getDefaultChat().provider.enterprise.name);
 	}
 
 	private _getEnterpriseInstancePromptLabel(): string {
-		return localize('onboarding.signIn.enterprise.prompt', "What is your {0} instance?", defaultChat.provider.enterprise.name);
+		return localize('onboarding.signIn.enterprise.prompt', "What is your {0} instance?", getDefaultChat().provider.enterprise.name);
 	}
 
 	private _setEnterpriseSignInUiState(state: EnterpriseSignInUiState): void {
@@ -739,7 +746,7 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 	}
 
 	private async _handleEnterpriseSignIn(): Promise<void> {
-		const existingUri = this.configurationService.getValue<string>(defaultChat.providerUriSetting);
+		const existingUri = this.configurationService.getValue<string>(getDefaultChat().providerUriSetting);
 		if (typeof existingUri !== 'string' || !GHE_FULL_URI_REGEX.test(existingUri)) {
 			this.enterpriseInstanceValue = existingUri ?? '';
 			this.enterpriseSignInWatch = StopWatch.create();
@@ -753,7 +760,7 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 
 	private async _submitEnterpriseInstance(resolvedUri: string): Promise<void> {
 		try {
-			await this.configurationService.updateValue(defaultChat.providerUriSetting, resolvedUri, ConfigurationTarget.USER);
+			await this.configurationService.updateValue(getDefaultChat().providerUriSetting, resolvedUri, ConfigurationTarget.USER);
 			this.enterpriseInstanceValue = resolvedUri;
 			await this._runEnterpriseSignInSetup();
 		} catch {
@@ -765,7 +772,7 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 
 	private async _runEnterpriseSignInSetup(): Promise<void> {
 		const watch = this.enterpriseSignInWatch ?? StopWatch.create();
-		const provider = defaultChat.provider.enterprise.id;
+		const provider = getDefaultChat().provider.enterprise.id;
 		this._setEnterpriseSignInUiState('progress');
 
 		try {

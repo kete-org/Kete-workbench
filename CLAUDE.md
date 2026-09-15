@@ -9,8 +9,9 @@ Read this fully before making changes. See also `ARCHITECTURE.md` and
 Kete Workbench — a fork of `microsoft/vscode` with an embedded, governance-
 aware coding agent, built for African developer economics (cost-tiered
 model routing, offline-first, low-spec-hardware support). Currently in
-Tier 0 (foundation): the editor shell is rebranded and packaged by CI, and
-the governance gate service exists, but no agent loop has been built yet.
+Tier 0 (foundation): the editor shell is rebranded and packaged by CI, the
+governance gate is wired in, and first increments of model routing
+(`extensions/kete-models`) and the agent (`extensions/kete-agent`) exist.
 
 **"Kete Workbench" is the final product name** — decision closed, use it
 everywhere (D-004 in `DECISIONS.md`, which also records the naming history).
@@ -66,8 +67,15 @@ policy can switch gating on but never off. Registration, the fallback dialog
 and the audit sinks live in `src/vs/workbench/contrib/governance/`. Known
 gaps: agent-host sessions bypass the gate, MCP tools default to `localWrite`,
 and indirect commands (scripts, notebook cells) aren't inspected (D-016).
-The inherited chat and tool-calling loop is upstream's; no Kete agent loop,
-modes, skills or subagents exist yet.
+Model access: `extensions/kete-models` registers vendor `kete` with the language
+model registry; **Kete Auto** (`kete-auto`) routes each request to local Ollama or
+a Claude tier and re-sends it through `vscode.lm`, so every concrete model call is
+audited (D-017). The agent: `extensions/kete-agent` provides `@kete`, the default
+chat participant, running a plan → act → observe loop that acts only through
+`vscode.lm` and `vscode.lm.invokeTool` (lint-enforced), plus `.ide-config.json`
+project rules that cannot change governance and may only cap model spend
+(D-018). In both extensions `src/core/` must not import `vscode` (D-010). Modes,
+skills and subagents don't exist yet.
 
 ## Hard rules — do not weaken these
 

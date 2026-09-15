@@ -39,8 +39,12 @@ an action whose decision can't be written is denied. The threshold and on/off
 switch are policy-backed settings, and policy can switch gating on but never
 off (D-016). The workbench registers the gate, a fallback approval dialog and
 the audit sinks in `src/vs/workbench/contrib/governance/`.
-Agent features and UI ride on top, planned as a bundled extension that calls
-into the gate and never carries a gate of its own.
+Agent features and UI ride on top as bundled extensions that call into the
+gated APIs and never carry a gate of their own: `extensions/kete-agent` (the
+`@kete` agent loop, project rules and prompt layers, D-018) and
+`extensions/kete-models` (model providers and the Kete Auto router, D-017).
+Kete Auto re-sends every attempt through `vscode.lm`, so each concrete model
+call passes `sendChatRequest` and is audited under its real model id.
 
 ## Prompt composition (lives inside the agent orchestrator)
 

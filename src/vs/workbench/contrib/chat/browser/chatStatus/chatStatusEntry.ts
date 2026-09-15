@@ -167,7 +167,10 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 
 	private update(): void {
 		const sentiment = this.chatEntitlementService.sentiment;
-		if (!sentiment.hidden) {
+		// Kete Workbench: the entry reports Copilot plans, quotas and inline
+		// suggestions and offers Copilot setup; without a default chat agent
+		// there is nothing to report, so it stays hidden (D-019).
+		if (!sentiment.hidden && product.defaultChatAgent) {
 			const props = this.getEntryProps();
 			if (this.entry) {
 				this.entry.update(props);
@@ -196,7 +199,7 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		this._register(this.editorService.onDidActiveEditorChange(() => this.onDidActiveEditorChange()));
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(product.defaultChatAgent?.completionsEnablementSetting) || e.affectsConfiguration(ChatConfiguration.TitleBarSignInEnabled)) {
+			if (e.affectsConfiguration(product.defaultChatAgent?.completionsEnablementSetting ?? '') || e.affectsConfiguration(ChatConfiguration.TitleBarSignInEnabled)) {
 				this.update();
 			}
 		}));

@@ -6,6 +6,103 @@ information — add a superseding entry instead of editing an old one.
 
 ---
 
+## D-018 — The agent core is a bundled extension; project rules can't touch governance or raise spend
+
+**Status:** accepted (first increment)
+**Date:** 2026-09-15
+
+`extensions/kete-agent` provides the Kete agent on top of the gated APIs, as
+D-003 planned.
+
+- **Portable core, thin adapter.** `src/core/` holds the agent loop, project
+  rules, prompt composition, context budgeting and model selection with no
+  `vscode` or Node imports (D-010). `src/vscode/` adapts them. ESLint enforces
+  the boundary.
+- **Acts only through gated APIs.** Models via `vscode.lm`, tools via
+  `vscode.lm.invokeTool` with the request's `toolInvocationToken`, so every
+  call passes the governance gate and its single chat confirmation. ESLint
+  forbids `fetch`, sockets, `child_process`, `fs` and other Node modules in
+  the extension's source. The only direct file access is reading
+  `.ide-config.json` and attached files.
+- **Loop.** Plan → act → observe, at most 12 rounds, stopping when the model
+  answers without tool calls or on cancellation. A call refused by
+  governance or the person is not retried. Refusals are recognised by the
+  gate's message text; a structured marker from the gate would be sturdier.
+- **Model selection.** Kete Auto (`kete`/`kete-auto`) first, then the
+  request's model, then any available model.
+- **Default participant.** `@kete` is also registered as the default chat
+  participant through a proposed API available to built-in extensions.
+  `product.json` still names Copilot as `defaultChatAgent`, so Copilot setup
+  prompts may appear. Changing that needs a check in a launched build.
+- **`.ide-config.json`** holds structured rules, coding standards and a model
+  tier cap. It is read only in trusted workspaces, and only known keys are
+  read: governance-like keys are reported and ignored, and governance
+  settings are never read or written. Free-form instructions stay with
+  upstream's `AGENTS.md` and `*.instructions.md` files.
+- **Rules can only lower model spend.** Only `modelRouting.maxTier` reaches
+  the router. `preferredTier` isn't forwarded, so a repository cannot push
+  requests to more expensive models.
+- **Prompt layers implemented:** core prompt, a read-only description of the
+  governance threshold, project rules, and a mode prompt (always `code` until
+  `kete.mode` exists). Skills and subagents are empty today. A
+  token-budgeted context assembler caps history, attachments and tool
+  results.
+- **Deferred:** modes, skills, subagents, Tree-sitter chunking and persistent
+  context caches, inline/terminal/notebook default participants, a web
+  entry, and a run in a launched editor.
+
+---
+
+## D-017 — Model routing is a bundled extension; Kete Auto routes through the governed path
+
+**Status:** accepted (first increment)
+**Date:** 2026-09-15
+
+`extensions/kete-models` provides local and cloud models and the tiered
+router. The stable `vscode.lm.registerLanguageModelChatProvider` API is
+enough, so no core change was needed.
+
+- **Providers.**
+  - Ollama (default `http://localhost:11434`).
+  - The Anthropic Messages API: Claude Haiku 4.5 as mid tier; Claude Sonnet 5
+    and Claude Opus 5 as frontier.
+  - Prompt caching on tools, system prompt and conversation prefix.
+  - The Claude API key lives only in secret storage ("Kete: Set Claude API
+    Key"). The API address is fixed in code.
+- **Connectivity** is tracked per service: online after any success, offline
+  when unreachable, degraded on server errors or slowness. Only degraded or
+  offline services are re-probed, with backoff from 15 s to 5 min.
+- **Kete Auto** (`kete`/`kete-auto`) starts at local and escalates only on
+  explicit criteria:
+  - a mode hint (`plan` → frontier, `debug` → mid)
+  - a `minTier` hint
+  - estimated prompt size
+  - tools or images the local model can't handle
+  It tries the required tier, at most one tier above, then lower tiers. A
+  model that fails before producing output is excluded and the request is
+  re-routed (up to 3 attempts). Every decision's reasons go to the "Kete
+  Models" output channel; prompts and keys are never logged.
+- **Governed path.** Kete Auto calls no backend itself. Each attempt goes
+  back through `vscode.lm`, so every concrete call passes `sendChatRequest`
+  and is audited under its real model id. That means two audit records per
+  request. A governance refusal is never retried on another model.
+- **The user controls spend.** `kete.models.routing.maxTier`,
+  `cloud.enabled` and the token thresholds are application-scoped, and the
+  Ollama endpoint and model are machine-scoped, so a workspace cannot
+  redirect traffic or enable cloud spend. Request hints can raise the tier
+  only within those settings, and a request's `maxTier` hint can only lower
+  the cap.
+- **Offline request queue:** specified as an interface (global storage,
+  sent through `vscode.lm` when back online, visible and discardable) but
+  not built, because interactive chat can't wait. It will be built with its
+  first non-interactive caller.
+- **Deferred:** exercising it in a launched editor; live Claude model
+  limits and prices; preferring to stay on one model to keep prompt
+  caches; a connectivity status indicator; a cost ledger; policy-backed
+  spend settings.
+
+---
+
 ## D-016 — Governance hardening: policy, durable audit, stricter classification
 
 **Status:** accepted

@@ -25,6 +25,8 @@ Tier 0 (foundation).
 | Telemetry off by default | Done |
 | Native packaging CI (macOS arm64/x64, Windows x64) | Passing; produces unsigned packages as CI artifacts |
 | Governance gate, risk classifier, audit log | Wired into every tool call and model request; settings pinnable by admin policy; durable, hash-chained audit log; tests run in CI. Agent-host sessions and MCP tools are not yet fully covered |
+| Model routing (`kete-models`) | First increment: local Ollama and Claude providers, and **Kete Auto**, which picks the cheapest capable tier and falls back offline. Unit-tested; not yet exercised in a launched editor. Offline request queue is specified but not built |
+| Agent (`kete-agent`) and project rules | First increment: `@kete` default chat participant with a plan → act → observe loop, `.ide-config.json` project rules, layered prompts. Unit-tested; not yet exercised in a launched editor. Modes, skills and subagents are still to come |
 | Product icons | Still upstream VS Code artwork |
 
 ## How it differs from Code - OSS

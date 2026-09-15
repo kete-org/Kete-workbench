@@ -140,7 +140,7 @@ function autoModelInformation(available: readonly ModelDescriptor[]): KeteModelI
 		name: 'Kete Auto',
 		version: '1',
 		detail: vscode.l10n.t('Cheapest capable model'),
-		tooltip: vscode.l10n.t('Uses a local Ollama model for routine work and Claude only when a request needs it. The routing log explains each choice.'),
+		tooltip: vscode.l10n.t('Uses a local Ollama model for routine work and a cloud model only when a request needs it. The routing log explains each choice.'),
 		maxInputTokens: largest || 8000,
 		maxOutputTokens: hasCloud ? 32000 : 4096,
 		capabilities: {
@@ -248,7 +248,7 @@ function toEditorError(error: unknown): Error {
 	if (error instanceof ProviderError) {
 		switch (error.kind) {
 			case ProviderErrorKind.Auth:
-				return vscode.LanguageModelError.NoPermissions(vscode.l10n.t('Claude rejected the API key. Run "Kete: Set Claude API Key" to replace it. ({0})', error.message));
+				return vscode.LanguageModelError.NoPermissions(vscode.l10n.t('The model provider rejected the API key. Run "Kete: Set Claude API Key" or "Kete: Set OpenAI API Key" to replace it. ({0})', error.message));
 			case ProviderErrorKind.NotFound:
 				return vscode.LanguageModelError.NotFound(vscode.l10n.t('The model is not available: {0}', error.message));
 			case ProviderErrorKind.Cancelled:
@@ -265,9 +265,9 @@ function noModelMessage(unavailable: RoutingUnavailable): string {
 		: unavailable.local === 'noLocalModel' ? vscode.l10n.t('Ollama has no chat models; pull one, for example with "ollama pull qwen2.5-coder:7b".')
 			: vscode.l10n.t('The local model failed.');
 	const cloud = unavailable.cloud === 'disabled' ? vscode.l10n.t('Cloud models are switched off in the "kete.models.cloud.enabled" setting.')
-		: unavailable.cloud === 'noApiKey' ? vscode.l10n.t('No Claude API key is set; run "Kete: Set Claude API Key".')
+		: unavailable.cloud === 'noApiKey' ? vscode.l10n.t('No cloud API key is set; run "Kete: Set Claude API Key" or "Kete: Set OpenAI API Key".')
 			: unavailable.cloud === 'cappedByMaxTier' ? vscode.l10n.t('The "kete.models.routing.maxTier" setting allows local models only.')
-				: unavailable.cloud === 'offline' ? vscode.l10n.t('The Claude API cannot be reached from this network.')
-					: vscode.l10n.t('The Claude model failed.');
+				: unavailable.cloud === 'offline' ? vscode.l10n.t('The cloud model provider cannot be reached from this network.')
+					: vscode.l10n.t('The cloud model failed.');
 	return vscode.l10n.t('No Kete model is available. {0} {1}', local, cloud);
 }

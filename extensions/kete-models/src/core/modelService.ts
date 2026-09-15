@@ -3,11 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CLAUDE_MODELS, ClaudeModelId } from './anthropicProvider';
 import { ConnectivityMonitor, ConnectivityState, Scheduler, systemScheduler } from './connectivity';
 import { ProviderError, ProviderErrorKind } from './errors';
-import { estimateTokens, RouteCandidate, RoutingDecision, RoutingHints, routeRequest, RoutingUnavailable } from './router';
-import { ChatRequest, ChatUsage, Disposable, ModelDescriptor, ModelProvider, ModelTier, modelTierName, ResponsePart } from './types';
+import { CloudOption, estimateTokens, RouteCandidate, RoutingDecision, RoutingHints, routeRequest, RoutingUnavailable } from './router';
+import { ChatRequest, ChatUsage, Disposable, ModelDescriptor, ModelProvider, ModelTier, modelTierName, ModelVendor, ResponsePart } from './types';
 
 /** The routed model's id and family, shared with the agent extension. */
 export const KETE_AUTO_MODEL_ID = 'kete-auto';
@@ -24,7 +23,8 @@ export interface ModelSettings {
 	readonly ollamaModel: string;
 	readonly cloudEnabled: boolean;
 	readonly maxTier: ModelTier;
-	readonly frontierModelId: string;
+	/** Which cloud vendor Kete Auto tries first when both are set up. */
+	readonly cloudVendor: ModelVendor;
 	readonly localMaxInputTokens: number;
 	readonly midMaxInputTokens: number;
 }
@@ -40,12 +40,28 @@ export interface CloudModelProvider extends ModelProvider {
 	hasApiKey(): Promise<boolean>;
 }
 
+/**
+ * One cloud vendor: its provider, its connectivity and the models it offers.
+ * Vendors are interchangeable to the router, which only compares tiers.
+ */
+export interface CloudProviderEntry {
+	readonly vendor: ModelVendor;
+	/** Names the vendor in logs and connectivity messages. */
+	readonly label: string;
+	readonly provider: CloudModelProvider;
+	readonly monitor: ConnectivityMonitor;
+	/** Every model this vendor offers, for the model picker. */
+	readonly models: () => readonly ModelDescriptor[];
+	/** The model this vendor serves a tier with, if any. */
+	readonly modelForTier: (tier: ModelTier) => ModelDescriptor | undefined;
+}
+
 /** Dependencies of {@link ModelService}. */
 export interface ModelServiceOptions {
 	readonly local: ModelProvider;
-	readonly cloud: CloudModelProvider;
+	/** Cloud vendors, in their default order of preference. */
+	readonly cloud: readonly CloudProviderEntry[];
 	readonly localMonitor: ConnectivityMonitor;
-	readonly cloudMonitor: ConnectivityMonitor;
 	readonly getSettings: () => ModelSettings;
 	readonly logger: ModelLogger;
 	readonly scheduler?: Scheduler;
@@ -70,9 +86,13 @@ export class NoModelAvailableError extends Error {
 	}
 }
 
-/** The id a model is registered under with the editor. */
+/**
+ * The id a model is registered under with the editor. Vendor-qualified, because
+ * two vendors can serve the same model name — an OpenAI-compatible server and
+ * Ollama both serve `llama3.2`, for instance.
+ */
 export function registeredModelId(model: ModelDescriptor): string {
-	return model.tier === ModelTier.Local ? `ollama/${model.providerModelId}` : model.providerModelId;
+	return `${model.vendor}/${model.providerModelId}`;
 }
 
 /**
@@ -87,7 +107,11 @@ export class ModelService implements Disposable {
 
 	constructor(private readonly options: ModelServiceOptions) {
 		this.scheduler = options.scheduler ?? systemScheduler;
-		for (const [name, monitor] of [['Ollama', options.localMonitor], ['Claude API', options.cloudMonitor]] as const) {
+		const monitors: readonly (readonly [string, ConnectivityMonitor])[] = [
+			['Ollama', options.localMonitor],
+			...options.cloud.map(entry => [entry.label, entry.monitor] as const),
+		];
+		for (const [name, monitor] of monitors) {
 			this.disposables.push(monitor.onDidChange(change => {
 				options.logger.info(`${name} connectivity: ${change.previous} → ${change.current} (${change.reason})`);
 				if (monitor === options.localMonitor) {
@@ -104,11 +128,13 @@ export class ModelService implements Disposable {
 		return { dispose: () => this.listeners.delete(listener) };
 	}
 
-	/** Forgets cached models and connectivity, after settings or the key changed. */
+	/** Forgets cached models and connectivity, after settings or a key changed. */
 	settingsChanged(): void {
 		this.localModels = undefined;
 		this.options.localMonitor.reset();
-		this.options.cloudMonitor.reset();
+		for (const entry of this.options.cloud) {
+			entry.monitor.reset();
+		}
 		this.fireModelsChanged();
 	}
 
@@ -138,13 +164,52 @@ export class ModelService implements Disposable {
 		}
 	}
 
-	/** Claude models, when cloud use is enabled and a key is set. */
+	/** Cloud models from every vendor that is enabled and has a key. */
 	async getCloudModels(): Promise<readonly ModelDescriptor[]> {
 		const settings = this.options.getSettings();
-		if (!settings.cloudEnabled || settings.maxTier === ModelTier.Local || !(await this.options.cloud.hasApiKey())) {
+		if (!settings.cloudEnabled || settings.maxTier === ModelTier.Local) {
 			return [];
 		}
-		return CLAUDE_MODELS.filter(model => model.tier <= settings.maxTier);
+		const models: ModelDescriptor[] = [];
+		for (const entry of this.orderedCloudEntries(settings.cloudVendor)) {
+			if (await entry.provider.hasApiKey()) {
+				models.push(...entry.models().filter(model => model.tier <= settings.maxTier));
+			}
+		}
+		return models;
+	}
+
+	/** Cloud vendors with the preferred one first. */
+	private orderedCloudEntries(preferred: ModelVendor): readonly CloudProviderEntry[] {
+		return [...this.options.cloud].sort((a, b) => Number(b.vendor === preferred) - Number(a.vendor === preferred));
+	}
+
+	/**
+	 * Picks the vendor that serves a tier: the preferred one when it has a key,
+	 * a model for the tier and hasn't already failed for this request, otherwise
+	 * the next. An offline vendor is only chosen when no other can serve the
+	 * tier, so the router can report it as offline rather than silently skipping
+	 * a vendor that is merely degraded.
+	 */
+	private async selectCloudModel(tier: ModelTier, excludedModels: ReadonlySet<string>, preferred: ModelVendor): Promise<CloudOption | undefined> {
+		let offlineFallback: CloudOption | undefined;
+		for (const entry of this.orderedCloudEntries(preferred)) {
+			const model = entry.modelForTier(tier);
+			if (!model || excludedModels.has(model.providerModelId) || !(await entry.provider.hasApiKey())) {
+				continue;
+			}
+			const option: CloudOption = { model, state: entry.monitor.state };
+			if (entry.monitor.state !== ConnectivityState.Offline) {
+				return option;
+			}
+			offlineFallback ??= option;
+		}
+		return offlineFallback;
+	}
+
+	/** The vendor that serves a model, by the model's own vendor id. */
+	private cloudEntryFor(model: ModelDescriptor): CloudProviderEntry | undefined {
+		return this.options.cloud.find(entry => entry.vendor === model.vendor);
 	}
 
 	/** The local model Kete Auto uses: the configured one if Ollama has it, else the first listed. */
@@ -167,6 +232,7 @@ export class ModelService implements Disposable {
 	 */
 	async decide(request: ChatRequest, hints: RoutingHints, excludedModels: ReadonlySet<string>, signal: AbortSignal): Promise<RoutingDecision> {
 		const settings = this.options.getSettings();
+		const preferred = settings.cloudVendor;
 		const routingRequest = {
 			estimatedInputTokens: estimateTokens(request.messages, request.tools),
 			usesTools: request.tools.length > 0,
@@ -179,26 +245,32 @@ export class ModelService implements Disposable {
 			localMaxInputTokens: settings.localMaxInputTokens,
 			midMaxInputTokens: settings.midMaxInputTokens,
 		};
-		const frontierModel = CLAUDE_MODELS.find(model => model.providerModelId === settings.frontierModelId && model.tier === ModelTier.Frontier)
-			?? CLAUDE_MODELS.find(model => model.providerModelId === ClaudeModelId.Sonnet)!;
-		const midModel = CLAUDE_MODELS.find(model => model.providerModelId === ClaudeModelId.Haiku)!;
 		const localModel = await this.getLocalRoutingModel(signal);
-		const hasApiKey = await this.options.cloud.hasApiKey();
+		const readCloud = async () => ({
+			midModel: await this.selectCloudModel(ModelTier.Mid, excludedModels, preferred),
+			frontierModel: await this.selectCloudModel(ModelTier.Frontier, excludedModels, preferred),
+			hasApiKey: (await Promise.all(this.options.cloud.map(entry => entry.provider.hasApiKey()))).some(Boolean),
+		});
 
+		let cloud = await readCloud();
 		const environment = () => ({
 			localState: this.options.localMonitor.state,
 			localModel,
-			cloudState: this.options.cloudMonitor.state,
-			hasApiKey,
-			midModel,
-			frontierModel,
+			...cloud,
 			excludedModels,
 		});
 
 		let decision = routeRequest(routingRequest, policy, environment());
-		if (decision.candidates[0] && decision.candidates[0].tier !== ModelTier.Local && !this.options.cloudMonitor.known) {
-			await this.options.cloudMonitor.ensureKnown();
-			decision = routeRequest(routingRequest, policy, environment());
+		const chosen = decision.candidates[0];
+		if (chosen && chosen.tier !== ModelTier.Local) {
+			// Probe the vendor that would serve the request, if nothing is known
+			// about it yet.
+			const entry = this.cloudEntryFor(chosen.model);
+			if (entry && !entry.monitor.known) {
+				await entry.monitor.ensureKnown();
+				cloud = await readCloud();
+				decision = routeRequest(routingRequest, policy, environment());
+			}
 		}
 		return decision;
 	}
@@ -247,8 +319,12 @@ export class ModelService implements Disposable {
 			// A model picked before the settings changed must not bypass them.
 			throw new ProviderError(ProviderErrorKind.BadRequest, `${model.displayName} is not allowed by the Kete model settings (cloud enabled: ${settings.cloudEnabled}, max tier: ${modelTierName(settings.maxTier)})`);
 		}
-		const provider = isLocal ? this.options.local : this.options.cloud;
-		const monitor = isLocal ? this.options.localMonitor : this.options.cloudMonitor;
+		const entry = isLocal ? undefined : this.cloudEntryFor(model);
+		if (!isLocal && !entry) {
+			throw new ProviderError(ProviderErrorKind.NotFound, `No provider is configured for ${model.displayName}`);
+		}
+		const provider = entry ? entry.provider : this.options.local;
+		const monitor = entry ? entry.monitor : this.options.localMonitor;
 		const started = this.scheduler.now();
 		try {
 			const usage = await provider.chat(model, request, onPart, signal);

@@ -75,16 +75,26 @@ export interface RoutingPolicy {
 	readonly midMaxInputTokens: number;
 }
 
+/**
+ * A cloud model that could serve one tier, with the state of the service behind
+ * it. Which vendor it comes from is settled before routing, so the router only
+ * compares tiers.
+ */
+export interface CloudOption {
+	readonly model: ModelDescriptor;
+	readonly state: ConnectivityState;
+}
+
 /** What is usable right now. */
 export interface RoutingEnvironment {
 	readonly localState: ConnectivityState;
 	/** The local model Kete Auto would use, if Ollama listed one. */
 	readonly localModel: ModelDescriptor | undefined;
-	readonly cloudState: ConnectivityState;
+	/** Whether any cloud vendor has credentials. */
 	readonly hasApiKey: boolean;
-	/** The cloud model for each cloud tier. */
-	readonly midModel: ModelDescriptor;
-	readonly frontierModel: ModelDescriptor;
+	/** The cloud model for each cloud tier; `undefined` when no vendor offers one. */
+	readonly midModel: CloudOption | undefined;
+	readonly frontierModel: CloudOption | undefined;
 	/** Models that already failed for this request. */
 	readonly excludedModels: ReadonlySet<string>;
 }
@@ -207,11 +217,14 @@ export function routeRequest(request: RoutingRequest, userPolicy: RoutingPolicy,
 		&& environment.localState !== ConnectivityState.Offline
 		&& !environment.excludedModels.has(localModel.providerModelId);
 	const cloudModelFor = (tier: ModelTier) => tier === ModelTier.Mid ? environment.midModel : environment.frontierModel;
-	const cloudUsable = (tier: ModelTier) => tier <= policy.maxTier
-		&& policy.cloudEnabled
-		&& environment.hasApiKey
-		&& environment.cloudState !== ConnectivityState.Offline
-		&& !environment.excludedModels.has(cloudModelFor(tier).providerModelId);
+	const cloudUsable = (tier: ModelTier) => {
+		const option = cloudModelFor(tier);
+		return option !== undefined
+			&& tier <= policy.maxTier
+			&& policy.cloudEnabled
+			&& option.state !== ConnectivityState.Offline
+			&& !environment.excludedModels.has(option.model.providerModelId);
+	};
 	const usable = (tier: ModelTier) => tier === ModelTier.Local ? localUsable : cloudUsable(tier);
 
 	const order: ModelTier[] = [];
@@ -233,9 +246,10 @@ export function routeRequest(request: RoutingRequest, userPolicy: RoutingPolicy,
 		if (!usable(tier)) {
 			continue;
 		}
-		if (tier !== ModelTier.Local) {
-			candidates.push({ tier, model: cloudModelFor(tier) });
-		} else if (localModel) {
+		const cloudOption = tier !== ModelTier.Local ? cloudModelFor(tier) : undefined;
+		if (cloudOption) {
+			candidates.push({ tier, model: cloudOption.model });
+		} else if (tier === ModelTier.Local && localModel) {
 			candidates.push({ tier, model: localModel });
 		}
 	}
@@ -254,7 +268,7 @@ export function routeRequest(request: RoutingRequest, userPolicy: RoutingPolicy,
 			cloud: !policy.cloudEnabled ? 'disabled'
 				: !environment.hasApiKey ? 'noApiKey'
 					: policy.maxTier === ModelTier.Local ? 'cappedByMaxTier'
-						: environment.cloudState === ConnectivityState.Offline ? 'offline'
+						: isCloudOffline(environment) ? 'offline'
 							: 'failed',
 		},
 	};
@@ -268,10 +282,20 @@ function describeCloud(tier: ModelTier, policy: RoutingPolicy, environment: Rout
 		return 'cloud disabled';
 	}
 	if (!environment.hasApiKey) {
-		return 'no Claude API key';
+		return 'no cloud API key';
 	}
-	if (environment.cloudState === ConnectivityState.Offline) {
+	const option = tier === ModelTier.Mid ? environment.midModel : environment.frontierModel;
+	if (!option) {
+		return 'no model configured for this tier';
+	}
+	if (option.state === ConnectivityState.Offline) {
 		return 'offline';
 	}
 	return 'failed for this request';
+}
+
+/** Whether every cloud tier that has a model is offline. */
+function isCloudOffline(environment: RoutingEnvironment): boolean {
+	const options = [environment.midModel, environment.frontierModel].filter((option): option is CloudOption => option !== undefined);
+	return options.length === 0 || options.every(option => option.state === ConnectivityState.Offline);
 }

@@ -88,11 +88,30 @@ don't look for a way to bypass the ruleset for convenience.
   decision to a durable audit store, and its settings can be pinned by admin
   policy. See `ARCHITECTURE.md` and D-003 in `DECISIONS.md`.
 - Models and the agent are first increments. In a launched editor `@kete`
-  answers chat with Kete Auto selected, but no run against a real model has
-  been tried yet. To use them: run Ollama locally (`http://localhost:11434`, configurable
-  with `kete.models.ollama.endpoint`) and/or run **Kete: Set Claude API Key**,
-  then chat with `@kete` (the default participant) using **Kete Auto**. Their
-  unit tests run with
+  answers chat with Kete Auto selected; the providers have been exercised
+  against a real Ollama server, but not yet against a cloud vendor. To use
+  them, set up at least one provider and chat with `@kete` (the default
+  participant) using **Kete Auto**:
+  - **Local (Ollama).** Run Ollama and point
+    `kete.models.ollama.endpoint` at it. It defaults to
+    `http://localhost:11434`, and any http(s) address works, including a
+    server on your network, for example `http://192.168.27.136:11434`. The
+    setting is machine-scoped, so a workspace can't redirect model traffic.
+    Pull a tools-capable model; `kete.models.ollama.model` picks which one
+    Kete Auto uses when Ollama serves several.
+  - **Claude.** Run **Kete: Set Claude API Key**.
+  - **OpenAI, or any OpenAI-compatible endpoint.** Run **Kete: Set OpenAI API
+    Key**. `kete.models.openai.endpoint` defaults to OpenAI itself and can
+    point at Azure OpenAI, OpenRouter, vLLM or LM Studio instead;
+    `kete.models.openai.midModel` and `kete.models.openai.frontierModel` name
+    the models to use, because model names change and every server serves
+    different ones (D-020).
+  - With both cloud vendors set up, `kete.models.cloud.vendor` says which one
+    Kete Auto tries first; the other is used when the first has no key, no
+    model for the tier, or is unreachable. Both vendors' models stay in the
+    model picker.
+
+  Their unit tests run with
   `node --test "extensions/kete-models/out/test/**/*.test.js"` and
   `node --test "extensions/kete-agent/out/test/**/*.test.js"` after
   `npm run compile`.

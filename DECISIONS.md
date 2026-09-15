@@ -6,6 +6,52 @@ information — add a superseding entry instead of editing an old one.
 
 ---
 
+## D-020 — Cloud models come from interchangeable vendors; OpenAI-compatible is the second one
+
+**Status:** accepted
+**Date:** 2026-09-15
+
+`extensions/kete-models` now serves the two cloud tiers from more than one
+vendor: Claude (D-017) and an OpenAI-compatible provider, which is how Kete
+supports OpenAI's models, Codex included.
+
+- **Chat Completions, not the Responses API.** Chat Completions is the format
+  every OpenAI-compatible server speaks, so the same provider reaches OpenAI,
+  Azure OpenAI, OpenRouter, vLLM and LM Studio. One setting,
+  `kete.models.openai.endpoint`, moves Kete between them.
+- **Model ids are settings, not constants.** `openai.midModel` and
+  `openai.frontierModel` default to the GPT-5 family but are meant to be
+  changed: OpenAI renames and retires models, and a self-hosted server serves
+  entirely different ones. A wrong id surfaces as a `notFound` error naming
+  the model rather than a silent fallback.
+- **Vendors are interchangeable to the router.** The router still reasons in
+  tiers only; the service picks which vendor fills each tier before routing.
+  `kete.models.cloud.vendor` sets the preference, and the other vendor is used
+  when the first has no key, no model for that tier, or is unreachable. Because
+  the retry loop excludes a model that failed and then re-decides, a failed
+  Claude request can fall back to OpenAI within the same request, and the tiers
+  may come from different vendors at once.
+- **Model ids are vendor-qualified** (`anthropic/claude-sonnet-5`,
+  `openai/gpt-5-codex`, `ollama/llama3.2:latest`), because two vendors can
+  serve the same model name — an OpenAI-compatible server and Ollama both
+  serve `llama3.2`.
+- **The same guarantees hold.** Keys live only in secret storage, one command
+  per vendor. Cloud settings stay application- or machine-scoped, so a
+  workspace can't redirect traffic or turn on spend. Every concrete call still
+  goes back through `vscode.lm`, so the governance gate records it under the
+  real model id (D-003, D-017).
+- **Not the Codex CLI.** Supporting OpenAI's Codex CLI as an agent host is a
+  separate, larger piece of work, and agent-host sessions bypass the
+  governance gate today (D-016). That gap would have to close first, so it is
+  deliberately out of scope here.
+- **Verified:** 30 unit tests, including a recorded Chat Completions stream
+  with a split tool call, and cross-vendor routing. The Ollama path was also
+  run against a real server on a LAN address, which confirms
+  `kete.models.ollama.endpoint` reaches a non-localhost Ollama. No cloud
+  vendor has been exercised against its real API yet.
+
+---
+
 ## D-019 — Copilot is not the default chat agent
 
 **Status:** accepted

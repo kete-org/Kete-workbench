@@ -1,0 +1,64 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "Kete Workbench project rules (.ide-config.json)",
+	"description": "Structured agent configuration for this repository, read from the root of each workspace folder. It adds rules to the Kete agent's prompt and hints to model routing. It cannot change governance: approval thresholds, audit and permissions are set only by user settings and organization policy, and governance-like keys here are ignored. For free-form instructions, use AGENTS.md or *.instructions.md files instead.",
+	"type": "object",
+	"additionalProperties": false,
+	"properties": {
+		"$schema": {
+			"type": "string"
+		},
+		"version": {
+			"description": "Schema version. Only 1 is supported.",
+			"const": 1
+		},
+		"rules": {
+			"description": "Project rules the agent follows, one short instruction per entry (for example \"Never edit generated files under src/gen\"). Each entry is kept to one line and at most 1000 characters; at most 100 entries are read.",
+			"type": "array",
+			"maxItems": 100,
+			"items": {
+				"type": "string",
+				"maxLength": 1000
+			}
+		},
+		"codingStandards": {
+			"description": "Coding standards for code the agent writes (for example \"Use tabs for indentation\"). Same limits as rules.",
+			"type": "array",
+			"maxItems": 100,
+			"items": {
+				"type": "string",
+				"maxLength": 1000
+			}
+		},
+		"modelRouting": {
+			"description": "Hints for Kete's tiered model router. Only used when the router (vendor \"kete\", family \"kete-auto\") serves the request, and the router may override them, for example when offline. In a multi-root workspace the lowest tiers across folders win.",
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"preferredTier": {
+					"description": "The tier to try first.",
+					"$ref": "#/definitions/modelTier"
+				},
+				"maxTier": {
+					"description": "The most expensive tier this project may use.",
+					"$ref": "#/definitions/modelTier"
+				}
+			}
+		}
+	},
+	"definitions": {
+		"modelTier": {
+			"type": "string",
+			"enum": [
+				"local",
+				"mid",
+				"frontier"
+			],
+			"enumDescriptions": [
+				"A small model running on this machine or a self-hosted server. Cheapest, and available offline.",
+				"A mid-sized hosted model.",
+				"A frontier hosted model. Most capable and most expensive."
+			]
+		}
+	}
+}

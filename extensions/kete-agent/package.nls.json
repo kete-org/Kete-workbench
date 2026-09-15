@@ -1,0 +1,6 @@
+{
+	"displayName": "Kete Agent",
+	"description": "Kete Workbench's coding agent. Every model request and tool call goes through the governance gate.",
+	"participant.description": "Plan, edit and run code with Kete Workbench's agent",
+	"untrustedWorkspaces.description": "Project rules from .ide-config.json are only read in trusted workspaces."
+}

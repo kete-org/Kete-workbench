@@ -159,6 +159,7 @@ export default defineConfig(
 			'extensions/kete-models/**/*.{ts,mts}',
 			'src/vs/platform/governance/**/*.ts',
 			'src/vs/workbench/contrib/governance/**/*.ts',
+			'extensions/kete-agent/**/*.{ts,mts}',
 		],
 		rules: {
 			'header/header': [
@@ -171,6 +172,55 @@ export default defineConfig(
 					' *--------------------------------------------------------------------------------------------'
 				]
 			]
+		},
+	},
+	// Kete agent (D-003, D-010): side effects only through vscode.lm and its tools,
+	// so every model request and tool call reaches the governance gate. Its core
+	// is portable and imports neither vscode nor Node.
+	{
+		files: [
+			'extensions/kete-agent/src/**/*.ts',
+		],
+		ignores: [
+			'extensions/kete-agent/src/test/**/*.ts',
+		],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					'patterns': [
+						{
+							'group': ['child_process', 'fs', 'fs/*', 'http', 'https', 'net', 'tls', 'dgram', 'worker_threads', 'node:*'],
+							'message': 'The Kete agent acts only through vscode.lm and its tools, so the governance gate sees every action.'
+						}
+					]
+				}
+			],
+			'no-restricted-globals': [
+				'error',
+				'name', 'length', 'event', 'closed', 'external', 'status', 'origin', 'orientation', 'context',
+				{ 'name': 'fetch', 'message': 'The Kete agent reaches models only through vscode.lm.' },
+				{ 'name': 'XMLHttpRequest', 'message': 'The Kete agent reaches models only through vscode.lm.' },
+				{ 'name': 'WebSocket', 'message': 'The Kete agent reaches models only through vscode.lm.' },
+			],
+		},
+	},
+	{
+		files: [
+			'extensions/kete-agent/src/core/**/*.ts',
+		],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					'patterns': [
+						{
+							'group': ['vscode', 'child_process', 'fs', 'fs/*', 'http', 'https', 'net', 'tls', 'dgram', 'worker_threads', 'node:*', '../vscode/*'],
+							'message': 'The agent core is portable (D-010): no vscode, Node or adapter imports.'
+						}
+					]
+				}
+			],
 		},
 	},
 	// Disallow bracket notation for property names that can use dot notation.

@@ -32,6 +32,7 @@ export const dirs = [
 	'extensions/html-language-features/server',
 	'extensions/ipynb',
 	'extensions/jake',
+	'extensions/kete-agent',
 	'extensions/json-language-features',
 	'extensions/json-language-features/server',
 	'extensions/kete-models',

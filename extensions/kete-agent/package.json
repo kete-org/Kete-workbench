@@ -1,0 +1,71 @@
+{
+  "name": "kete-agent",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "10.0.0",
+  "publisher": "vscode",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.139.0"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "enabledApiProposals": [
+    "defaultChatParticipant",
+    "chatParticipantAdditions"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "%untrustedWorkspaces.description%"
+    }
+  },
+  "activationEvents": [],
+  "main": "./out/extension",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "kete.agent",
+        "name": "kete",
+        "fullName": "Kete",
+        "description": "%participant.description%",
+        "isSticky": true
+      },
+      {
+        "id": "kete.agent.default",
+        "name": "KeteWorkbench",
+        "fullName": "Kete",
+        "description": "%participant.description%",
+        "isDefault": true,
+        "modes": [
+          "ask",
+          "edit",
+          "agent"
+        ],
+        "locations": [
+          "panel"
+        ]
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": ".ide-config.json",
+        "url": "./schemas/ide-config.schema.json"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "gulp compile-extension:kete-agent",
+    "watch": "gulp watch-extension:kete-agent"
+  },
+  "devDependencies": {
+    "@types/node": "24.x"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kete-org/Kete-workbench.git"
+  }
+}

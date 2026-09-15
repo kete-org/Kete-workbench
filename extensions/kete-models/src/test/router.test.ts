@@ -7,24 +7,27 @@ import * as assert from 'node:assert';
 import { suite, test } from 'node:test';
 import { CLAUDE_MODELS, ClaudeModelId } from '../core/anthropicProvider';
 import { ConnectivityState } from '../core/connectivity';
-import { estimateTokens, parseRoutingHints, RoutingEnvironment, RoutingPolicy, routeRequest, RoutingRequest } from '../core/router';
+import { CloudOption, estimateTokens, parseRoutingHints, RoutingEnvironment, RoutingPolicy, routeRequest, RoutingRequest } from '../core/router';
 import { ModelDescriptor, ModelTier } from '../core/types';
 
-const qwen: ModelDescriptor = { providerModelId: 'qwen2.5-coder:7b', displayName: 'qwen2.5-coder:7b', family: 'ollama/qwen2.5-coder:7b', tier: ModelTier.Local, maxInputTokens: 8000, maxOutputTokens: 4096, supportsToolCalling: true, supportsImages: false };
+const qwen: ModelDescriptor = { vendor: 'ollama', providerModelId: 'qwen2.5-coder:7b', displayName: 'qwen2.5-coder:7b', family: 'ollama/qwen2.5-coder:7b', tier: ModelTier.Local, maxInputTokens: 8000, maxOutputTokens: 4096, supportsToolCalling: true, supportsImages: false };
 const noTools: ModelDescriptor = { ...qwen, providerModelId: 'phi3:mini', supportsToolCalling: false };
 const haiku = CLAUDE_MODELS.find(model => model.providerModelId === ClaudeModelId.Haiku)!;
 const sonnet = CLAUDE_MODELS.find(model => model.providerModelId === ClaudeModelId.Sonnet)!;
+
+const online = (model: ModelDescriptor): CloudOption => ({ model, state: ConnectivityState.Online });
 
 const policy: RoutingPolicy = { maxTier: ModelTier.Frontier, cloudEnabled: true, localMaxInputTokens: 8000, midMaxInputTokens: 50000 };
 const environment: RoutingEnvironment = {
 	localState: ConnectivityState.Online,
 	localModel: qwen,
-	cloudState: ConnectivityState.Online,
 	hasApiKey: true,
-	midModel: haiku,
-	frontierModel: sonnet,
+	midModel: online(haiku),
+	frontierModel: online(sonnet),
 	excludedModels: new Set(),
 };
+const offline = (model: ModelDescriptor): CloudOption => ({ model, state: ConnectivityState.Offline });
+
 const request: RoutingRequest = { estimatedInputTokens: 1200, usesTools: true, hasImages: false, hints: {} };
 
 /** Summarizes a decision as `required: candidate ids | reasons`. */
@@ -64,16 +67,16 @@ suite('routeRequest', () => {
 
 	test('falls back gracefully and explains downgrades', () => {
 		assert.deepStrictEqual({
-			cloudOffline: route({ request: { hints: { mode: 'plan' } }, environment: { cloudState: ConnectivityState.Offline } }),
-			noKey: route({ request: { estimatedInputTokens: 9000 }, environment: { hasApiKey: false } }),
+			cloudOffline: route({ request: { hints: { mode: 'plan' } }, environment: { midModel: offline(haiku), frontierModel: offline(sonnet) } }),
+			noKey: route({ request: { estimatedInputTokens: 9000 }, environment: { hasApiKey: false, midModel: undefined, frontierModel: undefined } }),
 			cappedAtMid: route({ request: { hints: { mode: 'plan' } }, policy: { maxTier: ModelTier.Mid } }),
 			localOffline: route({ environment: { localState: ConnectivityState.Offline } }),
 			localDegraded: route({ environment: { localState: ConnectivityState.Degraded } }),
 			localFailedThisRequest: route({ environment: { excludedModels: new Set(['qwen2.5-coder:7b']) } }),
-			cloudDegradedStillTried: route({ request: { estimatedInputTokens: 9000 }, environment: { cloudState: ConnectivityState.Degraded } }),
+			cloudDegradedStillTried: route({ request: { estimatedInputTokens: 9000 }, environment: { midModel: { model: haiku, state: ConnectivityState.Degraded } } }),
 		}, {
 			cloudOffline: { required: 'Frontier', candidates: ['qwen2.5-coder:7b'], reasons: ['mode \'plan\' → frontier', 'frontier unavailable (offline) → downgraded to local'] },
-			noKey: { required: 'Mid', candidates: ['qwen2.5-coder:7b'], reasons: ['~9000 tokens exceeds the local limit (8000) → mid', 'mid unavailable (no Claude API key) → downgraded to local'] },
+			noKey: { required: 'Mid', candidates: ['qwen2.5-coder:7b'], reasons: ['~9000 tokens exceeds the local limit (8000) → mid', 'mid unavailable (no cloud API key) → downgraded to local'] },
 			cappedAtMid: { required: 'Frontier', candidates: ['claude-haiku-4-5-20251001', 'qwen2.5-coder:7b'], reasons: ['mode \'plan\' → frontier', 'frontier unavailable (capped by maxTier mid) → downgraded to mid'] },
 			localOffline: { required: 'Local', candidates: ['claude-haiku-4-5-20251001'], reasons: ['routine request → local'] },
 			localDegraded: { required: 'Local', candidates: ['claude-haiku-4-5-20251001', 'qwen2.5-coder:7b'], reasons: ['routine request → local', 'Ollama recently failed (degraded) → mid first, local as fallback'] },
@@ -113,8 +116,8 @@ suite('routeRequest', () => {
 
 	test('reports why nothing is available', () => {
 		assert.deepStrictEqual({
-			offlineNoKey: route({ environment: { localState: ConnectivityState.Offline, localModel: undefined, hasApiKey: false } }).unavailable,
-			noModelsCloudOffline: route({ environment: { localModel: undefined, cloudState: ConnectivityState.Offline } }).unavailable,
+			offlineNoKey: route({ environment: { localState: ConnectivityState.Offline, localModel: undefined, hasApiKey: false, midModel: undefined, frontierModel: undefined } }).unavailable,
+			noModelsCloudOffline: route({ environment: { localModel: undefined, midModel: offline(haiku), frontierModel: offline(sonnet) } }).unavailable,
 			disabled: route({ environment: { localModel: undefined }, policy: { cloudEnabled: false } }).unavailable,
 			localOnlyAndFailed: route({ environment: { excludedModels: new Set(['qwen2.5-coder:7b']) }, policy: { maxTier: ModelTier.Local } }).unavailable,
 		}, {
@@ -122,6 +125,19 @@ suite('routeRequest', () => {
 			noModelsCloudOffline: { local: 'noLocalModel', cloud: 'offline' },
 			disabled: { local: 'noLocalModel', cloud: 'disabled' },
 			localOnlyAndFailed: { local: 'failed', cloud: 'cappedByMaxTier' },
+		});
+	});
+
+	test('each tier can come from a different vendor', () => {
+		const gpt: ModelDescriptor = { vendor: 'openai', providerModelId: 'gpt-5-codex', displayName: 'gpt-5-codex', family: 'openai/gpt-5-codex', tier: ModelTier.Frontier, maxInputTokens: 128000, maxOutputTokens: 64000, supportsToolCalling: true, supportsImages: true };
+		assert.deepStrictEqual({
+			mixed: route({ request: { hints: { mode: 'plan' } }, environment: { frontierModel: online(gpt) } }).candidates,
+			claudeFrontierOffline: route({ request: { hints: { mode: 'plan' } }, environment: { frontierModel: offline(gpt) } }).candidates,
+			noMidConfigured: route({ request: { estimatedInputTokens: 9000 }, environment: { midModel: undefined } }).candidates,
+		}, {
+			mixed: ['gpt-5-codex', 'claude-haiku-4-5-20251001', 'qwen2.5-coder:7b'],
+			claudeFrontierOffline: ['claude-haiku-4-5-20251001', 'qwen2.5-coder:7b'],
+			noMidConfigured: ['claude-sonnet-5', 'qwen2.5-coder:7b'],
 		});
 	});
 

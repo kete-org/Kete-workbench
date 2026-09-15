@@ -44,6 +44,16 @@
         "category": "%category%"
       },
       {
+        "command": "kete.models.setOpenAIApiKey",
+        "title": "%command.setOpenAIApiKey%",
+        "category": "%category%"
+      },
+      {
+        "command": "kete.models.clearOpenAIApiKey",
+        "title": "%command.clearOpenAIApiKey%",
+        "category": "%category%"
+      },
+      {
         "command": "kete.models.checkConnectivity",
         "title": "%command.checkConnectivity%",
         "category": "%category%"
@@ -74,6 +84,38 @@
           "default": true,
           "scope": "application",
           "markdownDescription": "%configuration.cloud.enabled%"
+        },
+        "kete.models.cloud.vendor": {
+          "type": "string",
+          "enum": [
+            "anthropic",
+            "openai"
+          ],
+          "enumDescriptions": [
+            "%configuration.cloud.vendor.anthropic%",
+            "%configuration.cloud.vendor.openai%"
+          ],
+          "default": "anthropic",
+          "scope": "application",
+          "markdownDescription": "%configuration.cloud.vendor%"
+        },
+        "kete.models.openai.endpoint": {
+          "type": "string",
+          "default": "https://api.openai.com/v1",
+          "scope": "machine",
+          "markdownDescription": "%configuration.openai.endpoint%"
+        },
+        "kete.models.openai.midModel": {
+          "type": "string",
+          "default": "gpt-5-mini",
+          "scope": "machine",
+          "markdownDescription": "%configuration.openai.midModel%"
+        },
+        "kete.models.openai.frontierModel": {
+          "type": "string",
+          "default": "gpt-5-codex",
+          "scope": "machine",
+          "markdownDescription": "%configuration.openai.frontierModel%"
         },
         "kete.models.routing.maxTier": {
           "type": "string",

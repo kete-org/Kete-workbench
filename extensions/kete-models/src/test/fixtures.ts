@@ -64,6 +64,41 @@ export const CLAUDE_OVERLOADED_STREAM = [
 	'',
 ].join('\n');
 
+/**
+ * An OpenAI Chat Completions stream: text, then a tool call whose arguments
+ * arrive across deltas, then usage with a prompt cache hit and `[DONE]`.
+ */
+export const OPENAI_TOOL_CALL_STREAM = [
+	'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","model":"gpt-5-mini","choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}',
+	'',
+	'data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{"content":"Reading the "}}]}',
+	'',
+	'data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{"content":"file — ✓"}}]}',
+	'',
+	'data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_01","type":"function","function":{"name":"read_file","arguments":""}}]}}]}',
+	'',
+	'data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"path\\": \\"src/"}}]}}]}',
+	'',
+	'data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"main.ts\\"}"}}]}}]}',
+	'',
+	'data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}',
+	'',
+	'data: {"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":4200,"completion_tokens":42,"total_tokens":4242,"prompt_tokens_details":{"cached_tokens":4100}}}',
+	'',
+	'data: [DONE]',
+	'',
+	'',
+].join('\r\n');
+
+/** An OpenAI stream that reports a mid-stream failure as an error object. */
+export const OPENAI_ERROR_STREAM = [
+	'data: {"id":"chatcmpl-2","choices":[{"index":0,"delta":{"content":"partial"}}]}',
+	'',
+	'data: {"error":{"message":"The server had an error","type":"server_error"}}',
+	'',
+	'',
+].join('\n');
+
 /** An Ollama `/api/chat` stream in its newline-delimited JSON format. */
 export const OLLAMA_CHAT_STREAM = [
 	'{"model":"qwen2.5-coder:7b","created_at":"2026-09-15T10:00:00Z","message":{"role":"assistant","content":"Hello"},"done":false}',

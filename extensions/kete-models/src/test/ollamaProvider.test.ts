@@ -40,6 +40,7 @@ suite('OllamaProvider', () => {
 
 		assert.deepStrictEqual({ models, urls: requests.map(r => r.url) }, {
 			models: [{
+				vendor: 'ollama',
 				providerModelId: 'qwen2.5-coder:7b',
 				displayName: 'qwen2.5-coder:7b',
 				family: 'ollama/qwen2.5-coder:7b',
@@ -98,7 +99,7 @@ suite('OllamaProvider', () => {
 	});
 
 	test('classifies failures', async () => {
-		const model = { providerModelId: 'missing', displayName: 'missing', family: 'ollama/missing', tier: ModelTier.Local, maxInputTokens: 8000, maxOutputTokens: 4096, supportsToolCalling: true, supportsImages: false };
+		const model = { vendor: 'ollama' as const, providerModelId: 'missing', displayName: 'missing', family: 'ollama/missing', tier: ModelTier.Local, maxInputTokens: 8000, maxOutputTokens: 4096, supportsToolCalling: true, supportsImages: false };
 		const request: ChatRequest = { messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }], tools: [], toolCallRequired: false };
 		const kind = async (promise: Promise<unknown>) => {
 			try {

@@ -8,13 +8,16 @@ import { suite, test } from 'node:test';
 import { CLAUDE_MODELS, ClaudeModelId } from '../core/anthropicProvider';
 import { ConnectivityMonitor, ConnectivityState } from '../core/connectivity';
 import { ProviderError, ProviderErrorKind } from '../core/errors';
-import { CloudModelProvider, ModelService, ModelSettings, NoModelAvailableError, registeredModelId } from '../core/modelService';
-import { ChatRequest, ModelDescriptor, ModelProvider, ModelTier } from '../core/types';
+import { CloudModelProvider, CloudProviderEntry, ModelService, ModelSettings, NoModelAvailableError, registeredModelId } from '../core/modelService';
+import { openAiModels } from '../core/openaiProvider';
+import { ChatRequest, ModelDescriptor, ModelProvider, ModelTier, ModelVendor } from '../core/types';
 import { FakeScheduler } from './fixtures';
 
-const qwen: ModelDescriptor = { providerModelId: 'qwen2.5-coder:7b', displayName: 'qwen2.5-coder:7b', family: 'ollama/qwen2.5-coder:7b', tier: ModelTier.Local, maxInputTokens: 8000, maxOutputTokens: 4096, supportsToolCalling: true, supportsImages: false };
+const qwen: ModelDescriptor = { vendor: 'ollama', providerModelId: 'qwen2.5-coder:7b', displayName: 'qwen2.5-coder:7b', family: 'ollama/qwen2.5-coder:7b', tier: ModelTier.Local, maxInputTokens: 8000, maxOutputTokens: 4096, supportsToolCalling: true, supportsImages: false };
 
-const defaultSettings: ModelSettings = { ollamaModel: '', cloudEnabled: true, maxTier: ModelTier.Frontier, frontierModelId: ClaudeModelId.Sonnet, localMaxInputTokens: 8000, midMaxInputTokens: 50000 };
+const defaultSettings: ModelSettings = { ollamaModel: '', cloudEnabled: true, maxTier: ModelTier.Frontier, cloudVendor: 'anthropic', localMaxInputTokens: 8000, midMaxInputTokens: 50000 };
+
+const OPENAI_MODELS = openAiModels({ mid: 'gpt-5-mini', frontier: 'gpt-5-codex' });
 
 const request: ChatRequest = { messages: [{ role: 'user', content: [{ type: 'text', text: 'Explain this function' }] }], tools: [], toolCallRequired: false };
 
@@ -22,6 +25,8 @@ interface Setup {
 	readonly localModels?: readonly ModelDescriptor[];
 	readonly localDown?: boolean;
 	readonly hasKey?: boolean;
+	/** Whether the OpenAI vendor is set up. Off unless a test asks for it. */
+	readonly hasOpenAIKey?: boolean;
 	readonly settings?: Partial<ModelSettings>;
 	/** What each model does when run, by provider model id. */
 	readonly behaviour?: Record<string, 'ok' | ProviderErrorKind>;
@@ -47,26 +52,34 @@ function setup(options: Setup = {}) {
 			}
 		},
 	};
-	const cloud: CloudModelProvider = {
-		id: 'anthropic',
-		hasApiKey: async () => options.hasKey ?? true,
-		listModels: async () => CLAUDE_MODELS,
+	const cloudProvider = (vendor: ModelVendor, hasKey: () => boolean, models: readonly ModelDescriptor[]): CloudModelProvider => ({
+		id: vendor,
+		hasApiKey: async () => hasKey(),
+		listModels: async () => models,
 		chat: async model => behave(model),
 		probe: async () => { },
+	});
+	const cloudEntry = (vendor: ModelVendor, label: string, hasKey: () => boolean, models: readonly ModelDescriptor[]): CloudProviderEntry & { readonly monitor: ConnectivityMonitor } => {
+		const provider = cloudProvider(vendor, hasKey, models);
+		const monitor = new ConnectivityMonitor({ name: label, probe: provider.probe, isEnabled: () => true, scheduler });
+		return { vendor, label, provider, monitor, models: () => models, modelForTier: tier => models.find(model => model.tier === tier) };
 	};
+
+	const anthropicEntry = cloudEntry('anthropic', 'Claude API', () => options.hasKey ?? true, CLAUDE_MODELS.filter(model => model.providerModelId !== ClaudeModelId.Opus));
+	const openaiEntry = cloudEntry('openai', 'OpenAI API', () => options.hasOpenAIKey ?? false, OPENAI_MODELS);
 	const localMonitor = new ConnectivityMonitor({ name: 'Ollama', probe: local.probe, isEnabled: () => true, scheduler });
-	const cloudMonitor = new ConnectivityMonitor({ name: 'Claude API', probe: cloud.probe, isEnabled: () => true, scheduler });
 	const service = new ModelService({
-		local, cloud, localMonitor, cloudMonitor, scheduler,
+		local, cloud: [anthropicEntry, openaiEntry], localMonitor, scheduler,
 		getSettings: () => ({ ...defaultSettings, ...options.settings }),
 		logger: { info: message => log.push(message), warn: message => log.push(`WARN ${message}`) },
 	});
 	const dispose = () => {
 		service.dispose();
 		localMonitor.dispose();
-		cloudMonitor.dispose();
+		anthropicEntry.monitor.dispose();
+		openaiEntry.monitor.dispose();
 	};
-	return { service, localMonitor, cloudMonitor, log, dispose };
+	return { service, localMonitor, cloudMonitor: anthropicEntry.monitor, openaiMonitor: openaiEntry.monitor, log, dispose };
 }
 
 /** Runs a routed request whose attempts call `runModel` directly, as the adapter's nested request would. */
@@ -105,7 +118,7 @@ suite('ModelService', () => {
 		const localState = context.localMonitor.state;
 		context.dispose();
 		assert.deepStrictEqual({ result, localState }, {
-			result: { attempts: ['ollama/qwen2.5-coder:7b', 'claude-haiku-4-5-20251001'], chosen: 'claude-haiku-4-5-20251001' },
+			result: { attempts: ['ollama/qwen2.5-coder:7b', 'anthropic/claude-haiku-4-5-20251001'], chosen: 'anthropic/claude-haiku-4-5-20251001' },
 			localState: ConnectivityState.Offline,
 		});
 	});
@@ -138,7 +151,33 @@ suite('ModelService', () => {
 
 		assert.deepStrictEqual({ noKey, exhausted }, {
 			noKey: { attempts: [], error: { local: 'ollamaOffline', cloud: 'noApiKey' } },
-			exhausted: { attempts: ['ollama/qwen2.5-coder:7b', 'claude-haiku-4-5-20251001'], error: { local: 'failed', cloud: 'failed' } },
+			exhausted: { attempts: ['ollama/qwen2.5-coder:7b', 'anthropic/claude-haiku-4-5-20251001'], error: { local: 'failed', cloud: 'failed' } },
+		});
+	});
+
+	test('prefers the configured cloud vendor and falls back to the other', async () => {
+		const bothVendors = { hasOpenAIKey: true, localModels: [] as readonly ModelDescriptor[], localDown: true };
+		const claudeFirst = setup(bothVendors);
+		const toClaude = await runRouted(claudeFirst);
+		claudeFirst.dispose();
+
+		const openaiFirst = setup({ ...bothVendors, settings: { cloudVendor: 'openai' } });
+		const toOpenAI = await runRouted(openaiFirst);
+		openaiFirst.dispose();
+
+		const claudeFails = setup({ ...bothVendors, behaviour: { [ClaudeModelId.Haiku]: ProviderErrorKind.Unhealthy } });
+		const acrossVendors = await runRouted(claudeFails);
+		claudeFails.dispose();
+
+		const onlyOpenAI = setup({ ...bothVendors, hasKey: false });
+		const withoutClaude = await runRouted(onlyOpenAI);
+		onlyOpenAI.dispose();
+
+		assert.deepStrictEqual({ toClaude, toOpenAI, acrossVendors, withoutClaude }, {
+			toClaude: { attempts: ['anthropic/claude-haiku-4-5-20251001'], chosen: 'anthropic/claude-haiku-4-5-20251001' },
+			toOpenAI: { attempts: ['openai/gpt-5-mini'], chosen: 'openai/gpt-5-mini' },
+			acrossVendors: { attempts: ['anthropic/claude-haiku-4-5-20251001', 'openai/gpt-5-mini'], chosen: 'openai/gpt-5-mini' },
+			withoutClaude: { attempts: ['openai/gpt-5-mini'], chosen: 'openai/gpt-5-mini' },
 		});
 	});
 
@@ -155,7 +194,12 @@ suite('ModelService', () => {
 		const disabledCloud = (await disabled.service.getCloudModels()).length;
 		disabled.dispose();
 
-		assert.deepStrictEqual({ cloud, localRouting, refused, disabledCloud }, {
+		const bothVendors = setup({ hasOpenAIKey: true });
+		const listed = (await bothVendors.service.getCloudModels()).map(registeredModelId);
+		bothVendors.dispose();
+
+		assert.deepStrictEqual({ cloud, localRouting, refused, disabledCloud, listed }, {
+			listed: ['anthropic/claude-haiku-4-5-20251001', 'anthropic/claude-sonnet-5', 'openai/gpt-5-mini', 'openai/gpt-5-codex'],
 			cloud: [ClaudeModelId.Haiku],
 			localRouting: 'llama3.2:latest',
 			refused: ProviderErrorKind.BadRequest,

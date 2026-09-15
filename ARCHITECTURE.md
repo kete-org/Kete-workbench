@@ -12,7 +12,7 @@ Agent orchestrator      (plan → act → observe loop)
 Governance gate         (approval gates + audit log)
     ↓
 Capability layer        (peers, called as needed, not a strict hierarchy)
-    ├── Model routing         (local Ollama / cloud Claude API / other providers)
+    ├── Model routing         (local Ollama / Claude / OpenAI-compatible endpoints)
     ├── Retrieval             (hybrid: vector search + code graph + knowledge base)
     ├── Tool & infra layer    (read/edit/run/git + Docker/Kubernetes provisioning)
     └── Skills & hooks        (progressive-disclosure skill loading, lifecycle hooks)
@@ -43,8 +43,11 @@ Agent features and UI ride on top as bundled extensions that call into the
 gated APIs and never carry a gate of their own: `extensions/kete-agent` (the
 `@kete` agent loop, project rules and prompt layers, D-018) and
 `extensions/kete-models` (model providers and the Kete Auto router, D-017).
-Kete Auto re-sends every attempt through `vscode.lm`, so each concrete model
-call passes `sendChatRequest` and is audited under its real model id.
+The cloud tiers are served by interchangeable vendors — Claude, and any
+OpenAI-compatible endpoint, which covers OpenAI and Codex models as well as
+self-hosted servers (D-020). Kete Auto re-sends every attempt through
+`vscode.lm`, so each concrete model call passes `sendChatRequest` and is
+audited under its real model id.
 
 ## Prompt composition (lives inside the agent orchestrator)
 

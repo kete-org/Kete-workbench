@@ -26,9 +26,9 @@ export const ClaudeModelId = {
  * defaults; the Models API is authoritative.
  */
 export const CLAUDE_MODELS: readonly ModelDescriptor[] = [
-	{ providerModelId: ClaudeModelId.Haiku, displayName: 'Claude Haiku 4.5', family: 'claude-haiku-4-5', tier: ModelTier.Mid, maxInputTokens: 200000, maxOutputTokens: 64000, supportsToolCalling: true, supportsImages: true },
-	{ providerModelId: ClaudeModelId.Sonnet, displayName: 'Claude Sonnet 5', family: 'claude-sonnet-5', tier: ModelTier.Frontier, maxInputTokens: 200000, maxOutputTokens: 64000, supportsToolCalling: true, supportsImages: true },
-	{ providerModelId: ClaudeModelId.Opus, displayName: 'Claude Opus 5', family: 'claude-opus-5', tier: ModelTier.Frontier, maxInputTokens: 200000, maxOutputTokens: 64000, supportsToolCalling: true, supportsImages: true },
+	{ vendor: 'anthropic', providerModelId: ClaudeModelId.Haiku, displayName: 'Claude Haiku 4.5', family: 'claude-haiku-4-5', tier: ModelTier.Mid, maxInputTokens: 200000, maxOutputTokens: 64000, supportsToolCalling: true, supportsImages: true },
+	{ vendor: 'anthropic', providerModelId: ClaudeModelId.Sonnet, displayName: 'Claude Sonnet 5', family: 'claude-sonnet-5', tier: ModelTier.Frontier, maxInputTokens: 200000, maxOutputTokens: 64000, supportsToolCalling: true, supportsImages: true },
+	{ vendor: 'anthropic', providerModelId: ClaudeModelId.Opus, displayName: 'Claude Opus 5', family: 'claude-opus-5', tier: ModelTier.Frontier, maxInputTokens: 200000, maxOutputTokens: 64000, supportsToolCalling: true, supportsImages: true },
 ];
 
 /** Dependencies of {@link AnthropicProvider}. */

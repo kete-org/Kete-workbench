@@ -105,6 +105,7 @@ export class OllamaProvider implements ModelProvider {
 	private describe(name: string, details: ModelDetails): ModelDescriptor {
 		const contextWindow = Math.min(this.contextWindow(), details.contextLength ?? Number.MAX_SAFE_INTEGER);
 		return {
+			vendor: 'ollama',
 			providerModelId: name,
 			displayName: name,
 			family: `ollama/${name}`,

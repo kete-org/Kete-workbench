@@ -109,8 +109,13 @@ export interface ChatUsage {
 	readonly stopReason?: string;
 }
 
+/** The backend serving a model. Part of the id the editor registers, so two
+ *  vendors offering the same model name stay distinct. */
+export type ModelVendor = 'ollama' | 'anthropic' | 'openai';
+
 /** A model a provider can serve. */
 export interface ModelDescriptor {
+	readonly vendor: ModelVendor;
 	/** The provider's own model name, e.g. `qwen2.5-coder:7b` or `claude-sonnet-5`. */
 	readonly providerModelId: string;
 	readonly displayName: string;
@@ -129,8 +134,8 @@ export interface Disposable {
 }
 
 /**
- * A model backend (D-010's `ModelProvider`): Ollama, the Claude API, and later
- * others. Providers only translate and transport. They don't route, retry or
+ * A model backend (D-010's `ModelProvider`): Ollama, the Claude API, the OpenAI
+ * API and other OpenAI-compatible endpoints. Providers only translate and transport. They don't route, retry or
  * decide connectivity; errors are thrown as `ProviderError`.
  */
 export interface ModelProvider {

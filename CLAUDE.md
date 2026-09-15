@@ -69,8 +69,10 @@ gaps: agent-host sessions bypass the gate, MCP tools default to `localWrite`,
 and indirect commands (scripts, notebook cells) aren't inspected (D-016).
 Model access: `extensions/kete-models` registers vendor `kete` with the language
 model registry; **Kete Auto** (`kete-auto`) routes each request to local Ollama or
-a Claude tier and re-sends it through `vscode.lm`, so every concrete model call is
-audited (D-017). The agent: `extensions/kete-agent` provides `@kete`, the default
+a cloud tier and re-sends it through `vscode.lm`, so every concrete model call is
+audited (D-017). The cloud tiers are served by interchangeable vendors — Claude
+and any OpenAI-compatible endpoint, which is how OpenAI and Codex models are
+supported; `kete.models.cloud.vendor` sets which is tried first (D-020). The agent: `extensions/kete-agent` provides `@kete`, the default
 chat participant, running a plan → act → observe loop that acts only through
 `vscode.lm` and `vscode.lm.invokeTool` (lint-enforced), plus `.ide-config.json`
 project rules that cannot change governance and may only cap model spend

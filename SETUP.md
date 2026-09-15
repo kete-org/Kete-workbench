@@ -85,6 +85,7 @@ don't look for a way to bypass the ruleset for convenience.
   on it exclusively.
 - No Kete agent loop yet. The governance gate gates every tool call and
   records every model request (tests: `./scripts/test.sh --grep Governance`,
-  also run in CI), but admin policy pinning and a persistent audit store are
-  still to come. The planned `kete-agent` extension hasn't been started. See
+  also run in CI), writes every decision to a durable audit store, and its
+  settings can be pinned by admin policy. The planned `kete-agent` extension
+  hasn't been started. See
   `ARCHITECTURE.md` and D-003 in `DECISIONS.md`.

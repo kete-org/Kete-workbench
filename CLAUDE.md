@@ -59,8 +59,13 @@ What exists today: the gate service, risk classifier and audit log in
 `sendChatRequest` (records every model request). A tool call that needs
 approval gets it through its own confirmation, which governance makes
 un-skippable (`governedToolConfirmation.ts`), so the person is asked once.
-Registration, the fallback dialog and the audit log sink live in
-`src/vs/workbench/contrib/governance/`.
+Every decision goes to a durable, hash-chained audit store
+(`governanceAuditStore.ts`); if it can't be written, the action is denied.
+Both governance settings are policy-backed (`governanceConfiguration.ts`), and
+policy can switch gating on but never off. Registration, the fallback dialog
+and the audit sinks live in `src/vs/workbench/contrib/governance/`. Known
+gaps: agent-host sessions bypass the gate, MCP tools default to `localWrite`,
+and indirect commands (scripts, notebook cells) aren't inspected (D-016).
 The inherited chat and tool-calling loop is upstream's; no Kete agent loop,
 modes, skills or subagents exist yet.
 

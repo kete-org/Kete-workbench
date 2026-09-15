@@ -24,7 +24,7 @@ Tier 0 (foundation).
 | Extension gallery → Open VSX | Done |
 | Telemetry off by default | Done |
 | Native packaging CI (macOS arm64/x64, Windows x64) | Passing; produces unsigned packages as CI artifacts |
-| Governance gate, risk classifier, audit log | Wired into every tool call and model request; tests run in CI. Admin policy pinning and a persistent audit store are still to come |
+| Governance gate, risk classifier, audit log | Wired into every tool call and model request; settings pinnable by admin policy; durable, hash-chained audit log; tests run in CI. Agent-host sessions and MCP tools are not yet fully covered |
 | Product icons | Still upstream VS Code artwork |
 
 ## How it differs from Code - OSS
@@ -41,8 +41,10 @@ Tier 0 (foundation).
   approval threshold (remote or shared infrastructure, by default) need your
   approval before they run: you're asked once, in the tool's own chat
   confirmation, which auto-approval settings can't skip. Every decision is
-  written to the *Kete Governance Audit* log. The threshold is an application setting, so a
-  repository's workspace settings cannot lower the bar for its own code.
+  written to a durable, append-only, hash-chained audit log, and an action
+  whose decision can't be written is denied. The threshold is an application
+  setting that an organisation can also pin by policy, so a repository's
+  workspace settings cannot lower the bar for its own code.
 
 ## Architecture
 

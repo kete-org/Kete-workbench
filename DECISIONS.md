@@ -6,6 +6,73 @@ information — add a superseding entry instead of editing an old one.
 
 ---
 
+## D-016 — Governance hardening: policy, durable audit, stricter classification
+
+**Status:** accepted
+**Date:** 2026-09-15
+
+Three changes close the follow-ups left after Phase 1 (D-003, D-006).
+
+### Policy can pin governance on, never off
+`kete.governance.approvalThreshold` and `kete.governance.enabled` are
+policy-backed (`KeteGovernanceApprovalThreshold`, `KeteGovernanceEnabled`,
+category "Chat"), so OS or file policy overrides user settings.
+- A policy value of `false` for `enabled` is treated as `true`, and logged.
+  An organisation that could disable approval for everyone would break the
+  human sign-off rule.
+- While either setting is pinned by policy, a user's `enabled: false` is
+  ignored. Otherwise switching gating off would bypass the admin's threshold.
+- Still allowed: a policy (or user) can set the threshold to `production`,
+  letting remote-cluster actions through without approval. D-006's
+  "remote always needs approval" is not enforced yet.
+
+### The audit store is authoritative and tamper-evident
+Every decision is appended as JSON Lines to
+`<default profile globalStorage>/keteGovernanceAudit/<YYYY-MM-DD>.<writer>.jsonl`.
+- **Location.** Global storage survives sessions and profile switches; the
+  logs folder rotates.
+- **Layout.** One file per UTC day per writer, so windows never interleave
+  in one file.
+- **Tamper evidence.** Each record carries the SHA-256 of the previous
+  stored line; `verifyAuditChain` finds the first broken link.
+- **Writes are awaited and serialized.** A failed durable write denies the
+  action even if the Output-panel log succeeded.
+- **Not yet covered.** Truncating the last lines or deleting a whole file
+  isn't detectable from the file alone (that needs an anchor stored
+  elsewhere). Nothing runs verification automatically, and there is no
+  retention policy. On web, hashing needs a secure origin; elsewhere every
+  approved action would be denied.
+
+### Classification errs towards asking
+- **Tools are judged by their real ids.** The classifier knows VS Code's and
+  Copilot's actual tool ids, each tied to the one origin allowed to own it.
+  A call's tier is the higher of the tool's tier and its command line's.
+- **Terminal tools.** All versions of the command are judged: the model's,
+  the tool's rewrite and the person's edit.
+- **`create_and_run_task`** is judged by its task's command and args, and
+  refuses a label that already exists, which would run a different task.
+- **`run_task`** is `remoteInfra`, because the command of an existing task
+  isn't visible to the gate. Cost: at the default threshold, every agent
+  task run needs one un-skippable confirmation. Chosen over letting deploy
+  tasks run unseen. Follow-up: pass the resolved task command through the
+  tool's prepared data.
+- **Command lines no longer hide commands** behind separators, quoting or
+  wrappers (`bash -c`, `sudo -u`, `git -C`, `terraform -chdir`). Deploys,
+  merges, publishing and remote databases are recognised. `gh` read commands
+  now need approval, as `aws`/`gcloud` already did.
+
+### Known gaps
+- **Agent-host sessions** (e.g. Copilot CLI's own shell and write tools) are
+  confirmed in chat but never reach `invokeTool`, so they bypass the gate.
+  This is the largest remaining gap.
+- **MCP tools** still default to `localWrite`, even for remote servers or
+  destructive operations.
+- **Indirect commands** aren't inspected: scripts, notebook cells, task
+  `dependsOn`, text sent to a terminal that's already in `ssh`, and `curl`
+  calls that change remote state.
+
+---
+
 ## D-015 — Docs describe what exists; runbooks track the process they describe
 
 **Status:** accepted

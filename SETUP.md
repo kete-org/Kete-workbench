@@ -106,10 +106,16 @@ don't look for a way to bypass the ruleset for convenience.
   - **Local (Ollama).** Run Ollama and point
     `kete.models.ollama.endpoint` at it. It defaults to
     `http://localhost:11434`, and any http(s) address works, including a
-    server on your network, for example `http://192.168.27.136:11434`. The
-    setting is machine-scoped, so a workspace can't redirect model traffic.
-    Pull a tools-capable model; `kete.models.ollama.model` picks which one
-    Kete Auto uses when Ollama serves several.
+    server on your network. The setting is machine-scoped, so a workspace
+    can't redirect model traffic. Pull a tools-capable model;
+    `kete.models.ollama.model` picks which one Kete Auto uses when Ollama
+    serves several.
+    `kete.models.ollama.requestTimeout` (seconds, default 120, max 290) is how
+    long to wait for the first token. A slow or shared server needs more: on a
+    CPU-only machine a bare prompt answered in ~10 s but an agent prompt
+    carrying the workbench's tools took ~175 s. Past ~300 s Node's networking
+    stack ends the request whatever the setting says, so a server slower than
+    that can't do local agent work (D-022).
   - **Claude.** Run **Kete: Set Claude API Key**.
   - **OpenAI, or any OpenAI-compatible endpoint.** Run **Kete: Set OpenAI API
     Key**. `kete.models.openai.endpoint` defaults to OpenAI itself and can

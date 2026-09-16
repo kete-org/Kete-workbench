@@ -6,7 +6,7 @@
 import * as assert from 'node:assert';
 import { suite, test } from 'node:test';
 import { ProviderError, ProviderErrorKind } from '../core/errors';
-import { OllamaProvider } from '../core/ollamaProvider';
+import { DEFAULT_OLLAMA_REQUEST_TIMEOUT_MS, OllamaProvider, resolveRequestTimeoutMs } from '../core/ollamaProvider';
 import { ChatRequest, ModelTier, ResponsePart } from '../core/types';
 import { chunkedBody, fakeFetch, jsonResponse, OLLAMA_CHAT_STREAM, OLLAMA_SHOW, OLLAMA_TAGS, RecordedRequest } from './fixtures';
 
@@ -31,6 +31,29 @@ const server = (request: RecordedRequest): Response => {
 };
 
 suite('OllamaProvider', () => {
+
+	test('resolves the request timeout setting, and clamps what a person could not wait for', () => {
+		assert.deepStrictEqual({
+			configured: resolveRequestTimeoutMs(240),
+			unset: resolveRequestTimeoutMs(undefined),
+			zero: resolveRequestTimeoutMs(0),
+			negative: resolveRequestTimeoutMs(-5),
+			notANumber: resolveRequestTimeoutMs('300'),
+			tooSmall: resolveRequestTimeoutMs(1),
+			atTheCeiling: resolveRequestTimeoutMs(600),
+			fractional: resolveRequestTimeoutMs(90.4),
+		}, {
+			configured: 240000,
+			unset: DEFAULT_OLLAMA_REQUEST_TIMEOUT_MS,
+			zero: DEFAULT_OLLAMA_REQUEST_TIMEOUT_MS,
+			negative: DEFAULT_OLLAMA_REQUEST_TIMEOUT_MS,
+			notANumber: DEFAULT_OLLAMA_REQUEST_TIMEOUT_MS,
+			tooSmall: 10000,
+			atTheCeiling: 290000,
+			fractional: 90400,
+		});
+	});
+
 
 	test('lists chat models with their capabilities and skips embedding models', async () => {
 		const { provider, requests } = ollama(server);

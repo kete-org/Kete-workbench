@@ -13,6 +13,39 @@ export const DEFAULT_OLLAMA_ENDPOINT = 'http://localhost:11434';
 /** Output tokens reserved in the context window Kete requests from Ollama. */
 export const OLLAMA_OUTPUT_TOKENS = 4096;
 
+/**
+ * How long to wait for a local model to start responding, in milliseconds.
+ * Generous, because the wait covers loading the model into memory and reading
+ * the whole prompt, and a slow or shared machine can take minutes over a large
+ * agent prompt before the first token appears.
+ */
+export const DEFAULT_OLLAMA_REQUEST_TIMEOUT_MS = 120000;
+
+/**
+ * Bounds for the configured timeout. The ceiling is not a preference: Node's
+ * `fetch` applies its own 300 s headers timeout that a caller cannot raise
+ * without supplying an undici dispatcher, and a request that outlives it fails
+ * as "fetch failed" rather than as our own timeout. Stopping just under that
+ * keeps the failure ours, and keeps the setting from promising a wait the
+ * runtime will not honour. Measured against a CPU-only server: a bare prompt
+ * answers in ~10 s, an agent-sized prompt with the workbench's tools took
+ * ~175 s, and a larger one exceeded 300 s and died there.
+ */
+const MIN_REQUEST_TIMEOUT_MS = 10000;
+const MAX_REQUEST_TIMEOUT_MS = 290000;
+
+/**
+ * Turns the `kete.models.ollama.requestTimeout` setting, in seconds, into
+ * milliseconds, falling back to the default when it is missing or unusable and
+ * clamping it to something a person could wait for.
+ */
+export function resolveRequestTimeoutMs(seconds: unknown): number {
+	if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) {
+		return DEFAULT_OLLAMA_REQUEST_TIMEOUT_MS;
+	}
+	return Math.min(MAX_REQUEST_TIMEOUT_MS, Math.max(MIN_REQUEST_TIMEOUT_MS, Math.round(seconds * 1000)));
+}
+
 const LABEL = 'Ollama';
 
 /** Dependencies of {@link OllamaProvider}. */
@@ -27,7 +60,11 @@ export interface OllamaProviderOptions {
 	 */
 	readonly getMaxInputTokens: () => number;
 	/** How long to wait for response headers, which includes loading the model. */
-	readonly headersTimeoutMs?: number;
+	/**
+	 * How long to wait for the first response byte of a chat request. Read on
+	 * every call, so a changed setting applies at once.
+	 */
+	readonly getRequestTimeoutMs?: () => number;
 	/** Creates ids for tool calls, which Ollama doesn't always assign. */
 	readonly createCallId?: () => string;
 }
@@ -93,7 +130,7 @@ export class OllamaProvider implements ModelProvider {
 			url: `${this.endpoint()}/api/chat`,
 			init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
 			signal,
-			headersTimeoutMs: this.options.headersTimeoutMs ?? 120000,
+			headersTimeoutMs: this.options.getRequestTimeoutMs?.() ?? DEFAULT_OLLAMA_REQUEST_TIMEOUT_MS,
 			label: LABEL,
 		});
 		if (!response.body) {

@@ -124,6 +124,9 @@ skills and subagents don't exist yet.
   them out.
 - **Docs say "planned" until the code is merged** (D-015). Check the repo
   before describing a feature as present.
+- **Phases are the delivery order, tiers are the feature backlog.** D-022
+  numbers Phases 0-6 and records what is still open in each; the roadmap's
+  tiers (D-013) are a separate axis. Don't renumber either in conversation.
 - **Icons are generated, not hand-edited.** The app icons in
   `resources/{darwin,win32,linux,server}/` come from `resources/kete-icon.svg`
   (and `kete-icon-small.svg` for 32 px and under) via

@@ -6,6 +6,70 @@ information — add a superseding entry instead of editing an old one.
 
 ---
 
+## D-022 — The delivery phases, and what "done" means for each
+
+**Status:** accepted
+**Date:** 2026-09-16
+
+The work has been planned in phases in conversation for weeks without being
+written down, while the roadmap in `Kete_Workbench_Master_Roadmap.md` speaks in
+tiers. Tiers are the *feature* backlog (D-013); phases are the *delivery*
+order. Both stay, and this entry fixes the phase numbering so the two stop
+drifting.
+
+- **Phase 0 — Foundation.** Fork rebranded (D-004), Open VSX (D-002),
+  telemetry off, `main` protected with required checks (D-014), native
+  packaging for macOS arm64/x64 and Windows x64, app icons generated (D-021).
+  **Done**, except: file-type icons and the letterpress watermarks are still
+  upstream artwork, `resources/server/manifest.json` still names the PWA
+  "Code - OSS", `product.json` still carries two Microsoft hosts
+  (`voiceWsUrl`, the `vscode-cdn.net` webview URL), and packages are unsigned.
+- **Phase 1 — Governance.** The gate, classifier and durable audit log at the
+  two call sites D-003 names, with policy pinning (D-006, D-016). **Done**,
+  except the three gaps D-016 lists: agent-host sessions bypass the gate, MCP
+  tools default to `localWrite`, and indirect commands are not inspected.
+- **Phase 2 — Model routing and cost.** Kete Auto over Ollama, Claude and any
+  OpenAI-compatible endpoint (D-017, D-020). **First increment done.** The
+  offline request queue is an interface only, a Kete Auto request still writes
+  two audit records, and no cloud vendor has been exercised against its real
+  API.
+- **Phase 3 — Agent core and project context.** `@kete`, the plan → act →
+  observe loop, and `.ide-config.json` rules (D-018). **First increment
+  done.** Governance denials are still recognised by message text rather than
+  a structured marker.
+- **Phase 4 — Modes, skills, subagents.** Not started. D-007 and D-008 already
+  settle which modes exist.
+- **Phase 5 — Retrieval and context.** Not started: hybrid retrieval, code
+  graph, persistent context caches.
+- **Phase 6 — Other surfaces.** Not started: the lightweight VS Code
+  extension, CLI, cloud runtime, mobile and JetBrains clients, each a thin
+  client over the shared core (D-010, `MULTI_PLATFORM_PLAN.md`).
+
+**Two defects this entry also closes,** both found by running the product
+rather than by testing it:
+
+- **The first chat request after a restart failed** with "Language model
+  unavailable". The editor resolves the model for a request before the
+  participant runs, and `kete-models` activated only when that resolution
+  asked for a provider — too late, so the first request had no models to pick
+  from and the second worked. The extension now activates on
+  `onStartupFinished`, which is what upstream's own chat extension does.
+- **The Ollama request timeout was hard-coded at 120 s**, which silently ruled
+  out slow or shared servers: a CPU-only machine answered a bare prompt in
+  ~10 s but needed ~175 s for an agent-sized prompt with the workbench's
+  tools. It is now `kete.models.ollama.requestTimeout`.
+
+**The timeout has a ceiling the setting cannot lift.** Node's `fetch` ends a
+request at 300 s on its own, and raising that needs an undici dispatcher the
+extension does not have. The setting is capped at 290 s so the failure stays
+ours and legible instead of surfacing as "fetch failed". A server that needs
+longer than that for an agent prompt is simply too slow for local agent work;
+the answer there is a cloud tier, a smaller model, or faster hardware, not a
+larger number. Supplying a dispatcher is the follow-up if that stops being
+true.
+
+---
+
 ## D-021 — The app icon is a woven mark, generated from one SVG
 
 **Status:** accepted

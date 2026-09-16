@@ -8,7 +8,7 @@ import { AnthropicProvider, CLAUDE_MODELS, ClaudeModelId } from './core/anthropi
 import { ConnectivityMonitor, ConnectivityState } from './core/connectivity';
 import { ProviderError } from './core/errors';
 import { CloudProviderEntry, ModelService, ModelSettings } from './core/modelService';
-import { DEFAULT_OLLAMA_ENDPOINT, OllamaProvider } from './core/ollamaProvider';
+import { DEFAULT_OLLAMA_ENDPOINT, OllamaProvider, resolveRequestTimeoutMs } from './core/ollamaProvider';
 import { DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_FRONTIER_MODEL, DEFAULT_OPENAI_MID_MODEL, openAiModels, OpenAIProvider } from './core/openaiProvider';
 import { ModelDescriptor, ModelTier, ModelVendor, parseModelTier } from './core/types';
 import { KETE_VENDOR, KeteLanguageModelProvider } from './languageModelProvider';
@@ -33,6 +33,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		fetch: fetchFunction,
 		getEndpoint: () => configuration().get<string>('ollama.endpoint', DEFAULT_OLLAMA_ENDPOINT),
 		getMaxInputTokens: () => settings().localMaxInputTokens,
+		getRequestTimeoutMs: () => resolveRequestTimeoutMs(configuration().get<number>('ollama.requestTimeout')),
 	});
 	const anthropic = new AnthropicProvider({ fetch: fetchFunction, getApiKey: () => claudeApiKey });
 	const openai = new OpenAIProvider({

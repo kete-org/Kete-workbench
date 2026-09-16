@@ -1,0 +1,28 @@
+<!--
+	Kete Workbench's mark: two gold warp strips crossing two green weft strips,
+	with the over/under alternating at all four crossings, so it reads as weaving
+	rather than as a grid. "Kete" is a woven basket (D-004).
+
+	This file is the single source for every app icon in resources/. Regenerate
+	them with `node generate-icons.ts` after changing it; nothing here is edited
+	by hand per platform.
+
+	Drawn on a 1024 grid. It has to survive 16 px in a task bar, so: one
+	silhouette, three fills, nothing thinner than 176/1024, and no text.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+	<rect x="0" y="0" width="1024" height="1024" rx="230" ry="230" fill="#14161C"/>
+
+	<!-- Warp: vertical, gold. -->
+	<rect x="288" y="150" width="176" height="724" rx="30" fill="#E9A73C"/>
+	<rect x="560" y="150" width="176" height="724" rx="30" fill="#E9A73C"/>
+
+	<!-- Weft: horizontal, green, drawn over the warp. -->
+	<rect x="150" y="288" width="724" height="176" rx="30" fill="#0F8A62"/>
+	<rect x="150" y="560" width="724" height="176" rx="30" fill="#0F8A62"/>
+
+	<!-- Two crossings painted back in gold, diagonally opposite, so the warp
+	     passes over the weft at those two and under at the other two. -->
+	<rect x="288" y="288" width="176" height="176" fill="#E9A73C"/>
+	<rect x="560" y="560" width="176" height="176" fill="#E9A73C"/>
+</svg>

@@ -124,8 +124,14 @@ skills and subagents don't exist yet.
   them out.
 - **Docs say "planned" until the code is merged** (D-015). Check the repo
   before describing a feature as present.
-- **Icons are not yet replaced** — `resources/{darwin,win32,linux}/` still
-  has upstream VS Code icon assets pending final branding artwork.
+- **Icons are generated, not hand-edited.** The app icons in
+  `resources/{darwin,win32,linux,server}/` come from `resources/kete-icon.svg`
+  (and `kete-icon-small.svg` for 32 px and under) via
+  `node generate-icons.ts`; run it and commit the result after changing a
+  master (D-021). It needs macOS: `iconutil` for `.icns`, `sips` for the
+  installer bitmaps. The per-language **file-type** icons
+  (`resources/darwin/*.icns`, `resources/win32/*.ico`) and the empty-editor
+  letterpress watermarks are still upstream VS Code artwork.
 
 ## Related docs
 

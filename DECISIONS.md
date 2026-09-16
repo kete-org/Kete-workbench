@@ -20,10 +20,16 @@ drifting.
 - **Phase 0 — Foundation.** Fork rebranded (D-004), Open VSX (D-002),
   telemetry off, `main` protected with required checks (D-014), native
   packaging for macOS arm64/x64 and Windows x64, app icons generated (D-021).
-  **Done**, except: file-type icons and the letterpress watermarks are still
-  upstream artwork, `resources/server/manifest.json` still names the PWA
-  "Code - OSS", `product.json` still carries two Microsoft hosts
-  (`voiceWsUrl`, the `vscode-cdn.net` webview URL), and packages are unsigned.
+  Document icons for all 28 file types carry Kete's badge rather than the VS
+  Code logo, the PWA introduces itself as Kete Workbench, and `product.json`
+  names no Microsoft endpoint: `voiceWsUrl` and the `vscode-cdn.net` webview
+  template are gone, and `apply-product-json.ts` strips them if an upstream
+  sync puts them back. **Done**, except: packages are unsigned (needs
+  certificates), the empty-editor letterpress art is still upstream's (it is a
+  generic editor sketch, not a logo, so it carries no trademark), and a web
+  build would still reach `vscode-cdn.net` through a fallback in
+  `environmentService.ts` — code rather than configuration, and part of
+  shipping the web surface in Phase 6.
 - **Phase 1 — Governance.** The gate, classifier and durable audit log at the
   two call sites D-003 names, with policy pinning (D-006, D-016). **Done**,
   except the three gaps D-016 lists: agent-host sessions bypass the gate, MCP
@@ -105,6 +111,10 @@ Code artwork that shipped in `resources/`.
 - **Still upstream artwork:** the ~29 per-language file-type icons and the
   empty-editor letterpress watermarks. They carry the VS Code logo, so they
   remain both a branding and a trademark item to close.
+
+**Closed since (D-022):** the same script now also generates the 28 document
+icons, so the VS Code logo they badged is gone. The letterpress watermarks
+stay upstream's: they are a generic editor sketch, not a logo.
 
 ---
 

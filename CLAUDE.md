@@ -116,9 +116,11 @@ skills and subagents don't exist yet.
 - **`product.json.diff` is documentation, not a literal patch** — don't
   `git apply` it. Use `apply-product-json.ts` for actual changes, which
   patches by key and keeps upstream's tab formatting.
-- **`product.json` still carries two upstream Microsoft hosts** —
-  `voiceWsUrl` (`falcon-caas.mai.microsoft.com`) and the `vscode-cdn.net`
-  webview URL. Open item; don't add more.
+- **`product.json` names no Microsoft endpoints**, and `apply-product-json.ts`
+  strips the ones upstream re-adds. One is left in *code*, not config: a web
+  build falls back to `vscode-cdn.net` for webviews through a default in
+  `environmentService.ts`. Desktop doesn't use it; replacing it belongs with
+  the web surface (D-022, Phase 6). Don't add new ones.
 - **`build.yml` is the only workflow, on purpose.** Upstream syncs will try
   to bring back upstream's workflows, CodeQL and Dependabot config — keep
   them out.

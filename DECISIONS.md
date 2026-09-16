@@ -31,9 +31,22 @@ drifting.
   `environmentService.ts` — code rather than configuration, and part of
   shipping the web surface in Phase 6.
 - **Phase 1 — Governance.** The gate, classifier and durable audit log at the
-  two call sites D-003 names, with policy pinning (D-006, D-016). **Done**,
-  except the three gaps D-016 lists: agent-host sessions bypass the gate, MCP
-  tools default to `localWrite`, and indirect commands are not inspected.
+  two call sites D-003 names, with policy pinning (D-006, D-016). MCP tools no
+  longer default to `localWrite`: a tool whose origin is an MCP server is
+  classified `remoteInfra`, the same treatment `run_task` gets, because the
+  protocol says nothing about what the tool does — `create_issue` and
+  `delete_cluster` look alike from here, and a server can change its tools at
+  any time. It therefore always reaches a person instead of passing silently
+  at the default threshold; trusting a particular server is a per-tool rule
+  (D-006), not a default. **Two gaps remain**, each needing its own design
+  rather than a classifier tweak:
+  - **Agent-host sessions bypass the gate.** A Claude or Copilot CLI session
+    runs out of process and its tool calls never reach `invokeTool`, so
+    gating them means gating at the agent-host protocol boundary.
+  - **Indirect commands are not inspected.** `bash deploy.sh` and a notebook
+    cell carry their effect in a file the gate never reads. Closing this needs
+    the classifier to see file contents, which today it cannot: it is a pure
+    function in `platform/common` with no file access.
 - **Phase 2 — Model routing and cost.** Kete Auto over Ollama, Claude and any
   OpenAI-compatible endpoint (D-017, D-020). **First increment done.** The
   offline request queue is an interface only, a Kete Auto request still writes

@@ -146,7 +146,7 @@ suite('Governed actions', () => {
 				editorCommandVariable: createAndRun({ command: 'echo', args: ['${command:git.push}'] }),
 				local: createAndRun({ command: 'npm', args: ['run', 'build'] }),
 				existingTask: gate.assess(governedToolAction(invocation(TerminalToolId.RunTask, { workspaceFolder: '/w', id: 'shell: build' }, 's1'), tool(TerminalToolId.RunTask))),
-				unknownTool: gate.assess(governedToolAction(invocation('mcp_github_create_issue', {}), tool('mcp_github_create_issue', { type: 'mcp', label: 'GitHub', serverLabel: 'GitHub', instructions: undefined, collectionId: 'c', definitionId: 'd' }))),
+				mcpServerTool: gate.assess(governedToolAction(invocation('mcp_github_create_issue', {}), tool('mcp_github_create_issue', { type: 'mcp', label: 'GitHub', serverLabel: 'GitHub', instructions: undefined, collectionId: 'c', definitionId: 'd' }))),
 			},
 			{
 				remoteCluster: { commandLine: 'kubectl --context prod apply -f deploy.yaml', tier: GovernanceRiskTier.RemoteInfra, approvalRequired: true },
@@ -155,7 +155,8 @@ suite('Governed actions', () => {
 				editorCommandVariable: { commandLine: 'echo ${command:git.push}', tier: GovernanceRiskTier.RemoteInfra, approvalRequired: true },
 				local: { commandLine: 'npm run build', tier: GovernanceRiskTier.LocalWrite, approvalRequired: false },
 				existingTask: { tier: GovernanceRiskTier.RemoteInfra, approvalRequired: true },
-				unknownTool: { tier: GovernanceRiskTier.LocalWrite, approvalRequired: false },
+				// An MCP server's tool says nothing about what it does, so it always reaches a person.
+				mcpServerTool: { tier: GovernanceRiskTier.RemoteInfra, approvalRequired: true },
 			}
 		);
 	});

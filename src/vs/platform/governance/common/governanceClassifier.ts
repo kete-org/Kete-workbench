@@ -548,11 +548,27 @@ const KNOWN_TOOLS = new Map<string, IKnownTool>([
 	...tools(MERMAID, GovernanceRiskTier.Read, ['renderMermaidDiagram']),
 ]);
 
+/**
+ * Origin prefix `governedToolAction` gives a tool contributed by an MCP server.
+ */
+const MCP_ORIGIN_PREFIX = 'mcp:';
+
 function classifyTool(action: IGovernedAction): GovernanceRiskTier {
+	// An MCP server's tool is third-party code reached over a protocol that says
+	// nothing about what the tool does: `create_issue` and `delete_cluster` look
+	// alike from here, and the server can add or change tools at any time. It is
+	// treated the way `run_task` is — as something whose effect the gate cannot
+	// see — so it always reaches a person rather than passing silently at the
+	// default threshold. Lowering this for a server you trust is a per-tool rule
+	// (D-006), not a default.
+	if (action.origin.startsWith(MCP_ORIGIN_PREFIX)) {
+		return GovernanceRiskTier.RemoteInfra;
+	}
+
 	const known = KNOWN_TOOLS.get(action.name);
 	if (known === undefined) {
-		// An unknown tool — an MCP server's, typically — could do anything. Treat it
-		// as a local write so it is at least recorded and gateable, never as a read.
+		// An unknown tool could do anything. Treat it as a local write so it is at
+		// least recorded and gateable, never as a read.
 		return GovernanceRiskTier.LocalWrite;
 	}
 	if (action.origin.toLowerCase() === known.owner) {

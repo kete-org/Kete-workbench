@@ -27,7 +27,7 @@ Tier 0 (foundation).
 | Governance gate, risk classifier, audit log | Wired into every tool call and model request; settings pinnable by admin policy; durable, hash-chained audit log; tests run in CI. Agent-host sessions and MCP tools are not yet fully covered |
 | Model routing (`kete-models`) | First increment: local Ollama, Claude and OpenAI-compatible providers, and **Kete Auto**, which picks the cheapest capable tier and falls back offline. Unit-tested, and checked against a real Ollama server; no cloud vendor exercised end to end yet. Offline request queue is specified but not built |
 | Agent (`kete-agent`) and project rules | First increment: `@kete` default chat participant with a plan → act → observe loop, `.ide-config.json` project rules, layered prompts. Unit-tested; not yet exercised in a launched editor. Modes, skills and subagents are still to come |
-| Product icons | App icons generated from `resources/kete-icon.svg` for macOS, Windows (including installer bitmaps), Linux and the PWA. File-type icons and the empty-editor watermark are still upstream artwork |
+| Product icons | Generated from `resources/kete-icon.svg`: app icons for macOS, Windows (including installer bitmaps), Linux and the PWA, plus document icons for all 28 file types. The empty-editor watermark is still upstream's generic editor sketch |
 
 ## How it differs from Code - OSS
 

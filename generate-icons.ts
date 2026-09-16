@@ -6,8 +6,8 @@
 // Usage: node generate-icons.ts
 //
 // Regenerates every application icon in resources/ from the single master at
-// resources/kete-icon.svg, so the mark is edited in one place and never
-// per-platform by hand. Run it after changing that file, and commit what it
+// resources/kete-icon.svg, and the per-language document icons from the table
+// below, so the artwork is edited in one place and never per-platform by hand. Run it after changing that file, and commit what it
 // writes — CI builds packages from the committed icons, it does not run this.
 //
 // Two masters: kete-icon.svg, and kete-icon-small.svg for targets 32 px and
@@ -53,6 +53,49 @@ const ICONSET: ReadonlyArray<readonly [string, number]> = [
 /** Sizes inside a Windows .ico. 256 is the largest Windows reads. */
 const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
 const FAVICON_SIZES = [16, 32, 48];
+
+/** Document icons stop at 512: nothing shows a file icon larger than that. */
+const FILE_ICONSET = ICONSET.filter(([, size]) => size <= 512);
+
+/**
+ * The document icons, one per file type the fork registers. Each is the
+ * language's own colour — the one its community already uses — over a plain
+ * sheet, with Kete's mark as the badge. Upstream's versions carry the VS Code
+ * logo in that corner, which is Microsoft's trademark and not ours to ship.
+ *
+ * `bat` has no .ico upstream, so it gets no .ico here: these replace what the
+ * fork already ships rather than adding assets nothing references.
+ */
+const FILE_TYPES: ReadonlyArray<{ readonly name: string; readonly label: string; readonly colour: string; readonly windows?: false }> = [
+	{ name: 'bat', label: 'BAT', colour: '#4EAA25', windows: false },
+	{ name: 'bower', label: 'BOW', colour: '#EF5734' },
+	{ name: 'c', label: 'C', colour: '#5C6BC0' },
+	{ name: 'config', label: 'CFG', colour: '#8E9BA6' },
+	{ name: 'cpp', label: 'C++', colour: '#00599C' },
+	{ name: 'csharp', label: 'C#', colour: '#68217A' },
+	{ name: 'css', label: 'CSS', colour: '#2965F1' },
+	{ name: 'default', label: '', colour: '#8E9BA6' },
+	{ name: 'go', label: 'GO', colour: '#00ADD8' },
+	{ name: 'html', label: 'HTML', colour: '#E34F26' },
+	{ name: 'jade', label: 'PUG', colour: '#A86454' },
+	{ name: 'java', label: 'JAVA', colour: '#EA2D2E' },
+	{ name: 'javascript', label: 'JS', colour: '#C9A227' },
+	{ name: 'json', label: 'JSON', colour: '#A08B2A' },
+	{ name: 'less', label: 'LESS', colour: '#1D365D' },
+	{ name: 'markdown', label: 'MD', colour: '#42A5F5' },
+	{ name: 'php', label: 'PHP', colour: '#777BB4' },
+	{ name: 'powershell', label: 'PS', colour: '#1B4F8A' },
+	{ name: 'python', label: 'PY', colour: '#3776AB' },
+	{ name: 'react', label: 'JSX', colour: '#149ECA' },
+	{ name: 'ruby', label: 'RB', colour: '#CC342D' },
+	{ name: 'sass', label: 'SASS', colour: '#CF649A' },
+	{ name: 'shell', label: 'SH', colour: '#4EAA25' },
+	{ name: 'sql', label: 'SQL', colour: '#E38C00' },
+	{ name: 'typescript', label: 'TS', colour: '#3178C6' },
+	{ name: 'vue', label: 'VUE', colour: '#41B883' },
+	{ name: 'xml', label: 'XML', colour: '#F1662A' },
+	{ name: 'yaml', label: 'YAML', colour: '#CB171E' },
+];
 
 /**
  * The Inno Setup wizard bitmaps, per DPI scaling. Inno takes no alpha, so these
@@ -105,6 +148,57 @@ class Renderer {
 /** The master mark, sized to fill a square of `size`. */
 function squareMark(svgSource: string, size: number): string {
 	return svgSource.replace('width="1024" height="1024"', `width="${size}" height="${size}"`);
+}
+
+/**
+ * A document icon: a sheet with a folded corner, the file type's label, and
+ * Kete's mark badged in the corner.
+ *
+ * Below 64 px the label and the badge are dropped for a colour band. Four
+ * letters cannot be drawn in 16 pixels, and a smear of grey where text should
+ * be reads worse than no text at all; the colour is what people actually pick
+ * the file out by at that size.
+ */
+function documentIcon(label: string, colour: string, size: number): string {
+	const detailed = size >= 64;
+	const sheet = `
+		<path d="M 168 72 h 448 l 240 240 v 640 a 48 48 0 0 1 -48 48 H 168 a 48 48 0 0 1 -48 -48 V 120 a 48 48 0 0 1 48 -48 Z" fill="#F4F1EA"/>
+		<path d="M 616 72 l 240 240 H 664 a 48 48 0 0 1 -48 -48 Z" fill="#D9D3C7"/>`;
+
+	if (!detailed) {
+		// One band of the language's colour, sized to stay visible at 16 px.
+		return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="${size}" height="${size}">
+			${sheet}
+			<rect x="120" y="560" width="736" height="264" fill="${colour}"/>
+			<rect x="120" y="824" width="736" height="136" fill="#14161C"/>
+		</svg>`;
+	}
+
+	// The label sits above the badge, never beside it: four letters at this
+	// weight are wider than the space left of the badge, and an overlapping
+	// badge silently ate the last character of HTML, JSON and JAVA.
+	const text = label
+		? `<text x="488" y="430" font-family="system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif" font-weight="700" font-size="${label.length >= 4 ? 190 : label.length === 3 ? 235 : 290}" fill="${colour}" text-anchor="middle" dominant-baseline="middle">${label}</text>`
+		: `<rect x="250" y="390" width="400" height="60" rx="30" fill="${colour}"/>
+		<rect x="250" y="500" width="290" height="60" rx="30" fill="${colour}" opacity="0.55"/>`;
+
+	// Kete's mark, badged where upstream badges the VS Code logo.
+	const badge = `
+		<g transform="translate(580 612) scale(0.40)">
+			<rect x="0" y="0" width="1024" height="1024" rx="180" fill="#14161C"/>
+			<rect x="288" y="150" width="176" height="724" rx="30" fill="#E9A73C"/>
+			<rect x="560" y="150" width="176" height="724" rx="30" fill="#E9A73C"/>
+			<rect x="150" y="288" width="724" height="176" rx="30" fill="#0F8A62"/>
+			<rect x="150" y="560" width="724" height="176" rx="30" fill="#0F8A62"/>
+			<rect x="288" y="288" width="176" height="176" fill="#E9A73C"/>
+			<rect x="560" y="560" width="176" height="176" fill="#E9A73C"/>
+		</g>`;
+
+	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="${size}" height="${size}">
+		${sheet}
+		${text}
+		${badge}
+	</svg>`;
 }
 
 /**
@@ -211,6 +305,30 @@ async function main(): Promise<void> {
 		for (const [file, size] of squares) {
 			await png(size, file);
 			record(file);
+		}
+
+		// Document icons, one .icns and (where upstream ships one) one .ico each.
+		for (const fileType of FILE_TYPES) {
+			const typeIconset = path.join(temp, `${fileType.name}.iconset`);
+			fs.mkdirSync(typeIconset);
+			for (const [entry, size] of FILE_ICONSET) {
+				await renderer.toPng(documentIcon(fileType.label, fileType.colour, size), size, size, path.join(typeIconset, entry));
+			}
+			const typeIcns = path.join(root, 'resources', 'darwin', `${fileType.name}.icns`);
+			execFileSync('iconutil', ['--convert', 'icns', '--output', typeIcns, typeIconset]);
+			record(typeIcns);
+
+			if (fileType.windows !== false) {
+				const entries: Buffer[] = [];
+				for (const size of ICO_SIZES) {
+					const file = path.join(temp, `${fileType.name}-${size}.png`);
+					await renderer.toPng(documentIcon(fileType.label, fileType.colour, size), size, size, file);
+					entries.push(fs.readFileSync(file));
+				}
+				const typeIco = path.join(root, 'resources', 'win32', `${fileType.name}.ico`);
+				fs.writeFileSync(typeIco, buildIco(entries, ICO_SIZES));
+				record(typeIco);
+			}
 		}
 
 		// Installer bitmaps: rendered opaque, then converted by sips, because

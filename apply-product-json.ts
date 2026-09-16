@@ -59,7 +59,14 @@ const identity: Record<string, unknown> = {
 // Microsoft-specific endpoints that must not come back (CLAUDE.md hard rules),
 // and the Copilot default chat agent, whose absence switches off Copilot's
 // setup, sign-in and entitlement flows so @kete is the default (D-019).
-const removedKeys = ['aiConfig', 'crashReporter', 'updateUrl', 'defaultChatAgent'];
+//
+// `voiceWsUrl` pointed at a Microsoft voice service and `webviewContentExternalBaseUrlTemplate`
+// at Microsoft's CDN. Both are optional: without them the voice feature reports
+// that no endpoint is configured, and desktop webviews are served locally as
+// before. A web build would still fall back to the CDN through a default in
+// `environmentService.ts`, which is upstream code, not our configuration —
+// replacing that is part of shipping a web surface (D-022, Phase 6).
+const removedKeys = ['aiConfig', 'crashReporter', 'updateUrl', 'defaultChatAgent', 'voiceWsUrl', 'webviewContentExternalBaseUrlTemplate'];
 
 const original = fs.readFileSync(productPath, 'utf8');
 const product: Record<string, unknown> = JSON.parse(original);
@@ -91,4 +98,4 @@ if (changes.length === 0) {
 	}
 }
 
-console.log('Still manual: replace the icons under resources/darwin, resources/win32 and resources/linux.');
+console.log('Icons are generated from resources/kete-icon.svg: run `node generate-icons.ts` if they need rebuilding (D-021).');

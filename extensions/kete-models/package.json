@@ -23,7 +23,9 @@
   "enabledApiProposals": [
     "languageModelSystem"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension",
   "contributes": {
     "languageModelChatProviders": [
@@ -78,6 +80,14 @@
           "default": "",
           "scope": "machine",
           "markdownDescription": "%configuration.ollama.model%"
+        },
+        "kete.models.ollama.requestTimeout": {
+          "type": "number",
+          "default": 120,
+          "minimum": 10,
+          "maximum": 290,
+          "scope": "machine",
+          "markdownDescription": "%configuration.ollama.requestTimeout%"
         },
         "kete.models.cloud.enabled": {
           "type": "boolean",

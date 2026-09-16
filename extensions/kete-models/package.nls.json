@@ -11,6 +11,7 @@
 	"configuration.title": "Kete Models",
 	"configuration.ollama.endpoint": "Address of the Ollama server used for local models. Can only be set in user settings, so a workspace can't redirect model traffic.",
 	"configuration.ollama.model": "Ollama model that Kete Auto uses for routine requests, for example `qwen2.5-coder:7b`. When empty, the first model Ollama lists is used.",
+	"configuration.ollama.requestTimeout": "Seconds to wait for a local model to start responding before giving up and trying the next model. The wait covers loading the model and reading the whole prompt, so a slow or shared machine needs more than the default. It cannot exceed 290: Node's networking stack ends the request at 300 seconds regardless. A server that needs longer than that for an agent prompt is too slow for local agent work — use a cloud tier, a smaller model, or faster hardware.",
 	"configuration.cloud.enabled": "Allow Kete Auto to send requests to a cloud model when a request needs it and an API key is set. When disabled, only local models are used. Can only be set in user settings.",
 	"configuration.cloud.vendor": "Cloud vendor Kete Auto tries first. The other is used when the first has no API key, has no model for the tier, or is unreachable. Both vendors' models stay available in the model picker.",
 	"configuration.cloud.vendor.anthropic": "Claude (Anthropic).",
